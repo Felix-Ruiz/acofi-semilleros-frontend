@@ -7,28 +7,23 @@ function ScannerPage() {
   const [errorLectura, setErrorLectura] = useState('');
 
   useEffect(() => {
-    // Configuración del escáner con cámara trasera forzada
+    // 1. Configuración del escáner (aquí solo va la parte visual y de rendimiento)
     const scanner = new Html5QrcodeScanner(
       "qr-reader",
       { 
         fps: 10, 
-        qrbox: { width: 250, height: 250 },
-        facingMode:"environment"
+        qrbox: { width: 250, height: 250 }
       },
       false
     );
 
-    // Función que se ejecuta cuando el QR se lee con éxito
+    // 2. Función que se ejecuta cuando el QR se lee con éxito
     const onScanSuccess = (decodedText) => {
-      // Limpiamos el escáner para detener la cámara
       scanner.clear();
-      
-      // Los QRs que generó nuestro admin tienen la forma: https://subdominio.acofiapps.com/evaluar/123
-      // Necesitamos extraer el número final (el código) para navegar a la rúbrica dentro de nuestra app
       try {
         const url = new URL(decodedText);
         const partesPath = url.pathname.split('/');
-        const codigo = partesPath[partesPath.length - 1]; // Obtiene el último elemento (ej. '123')
+        const codigo = partesPath[partesPath.length - 1];
         
         if (codigo) {
           navigate(`/evaluar/${codigo}`);
@@ -36,20 +31,35 @@ function ScannerPage() {
           setErrorLectura("El código QR no tiene el formato correcto.");
         }
       } catch (e) {
-        // Si no es una URL válida, asumimos que quizás leyeron un texto plano y no nuestro QR
         setErrorLectura("Formato de QR inválido. Asegúrese de leer el QR oficial de la ponencia.");
       }
     };
 
-    // Función para manejar fallos de lectura continuos (es normal mientras enfoca)
-    const onScanFailure = (error) => {
-      // No mostramos errores de enfoque para no saturar al usuario
-    };
+    const onScanFailure = (error) => {};
 
-    // Iniciar el escáner
+    // 3. Iniciar el escáner y FORZAR la cámara trasera
+    // Utilizamos el objeto config para indicar el facingMode correcto
     scanner.render(onScanSuccess, onScanFailure);
 
-    // Función de limpieza al desmontar el componente (salir de la página)
+    // TRUCO: Intentamos forzar la cámara trasera buscando el elemento de selección
+    // que la librería inyecta automáticamente.
+    try {
+      const cameraSelect = document.getElementsByTagName("select")[0];
+      if (cameraSelect) {
+        // Buscamos la opción que contenga "back" o "environment"
+        for (let i = 0; i < cameraSelect.options.length; i++) {
+          if (cameraSelect.options[i].text.toLowerCase().includes("back") || 
+              cameraSelect.options[i].text.toLowerCase().includes("environment")) {
+            cameraSelect.selectedIndex = i;
+            cameraSelect.dispatchEvent(new Event('change'));
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("No se pudo autoseleccionar la cámara trasera automáticamente.");
+    }
+
     return () => {
       scanner.clear().catch(error => {
         console.error("Error deteniendo el escáner", error);
@@ -70,7 +80,6 @@ function ScannerPage() {
         </div>
       )}
 
-      {/* Contenedor donde la librería inyectará el video de la cámara */}
       <div id="qr-reader" className="w-full max-w-sm overflow-hidden rounded-xl border-2 border-blue-100 shadow-inner"></div>
 
       <button
