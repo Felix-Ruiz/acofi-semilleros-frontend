@@ -7,63 +7,55 @@ function ScannerPage() {
   const [errorLectura, setErrorLectura] = useState('');
 
   useEffect(() => {
-    // 1. Configuración del escáner (aquí solo va la parte visual y de rendimiento)
+    // 1. Iniciar el escáner sin forzar nada para que pida permisos primero
     const scanner = new Html5QrcodeScanner(
       "qr-reader",
-      { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 }
-      },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
       false
     );
 
-    // 2. Función que se ejecuta cuando el QR se lee con éxito
     const onScanSuccess = (decodedText) => {
       scanner.clear();
       try {
         const url = new URL(decodedText);
         const partesPath = url.pathname.split('/');
         const codigo = partesPath[partesPath.length - 1];
-        
-        if (codigo) {
-          navigate(`/evaluar/${codigo}`);
-        } else {
-          setErrorLectura("El código QR no tiene el formato correcto.");
-        }
+        if (codigo) navigate(`/evaluar/${codigo}`);
+        else setErrorLectura("El código QR no tiene el formato correcto.");
       } catch (e) {
-        setErrorLectura("Formato de QR inválido. Asegúrese de leer el QR oficial de la ponencia.");
+        setErrorLectura("Formato de QR inválido.");
       }
     };
 
-    const onScanFailure = (error) => {};
+    scanner.render(onScanSuccess, () => {});
 
-    // 3. Iniciar el escáner y FORZAR la cámara trasera
-    // Utilizamos el objeto config para indicar el facingMode correcto
-    scanner.render(onScanSuccess, onScanFailure);
-
-    // TRUCO: Intentamos forzar la cámara trasera buscando el elemento de selección
-    // que la librería inyecta automáticamente.
-    try {
+    // 2. LOGICA DE CONMUTACION:
+    // Esperamos 1.5 segundos a que la cámara inicie y el select esté presente en el DOM
+    const forceRearCamera = () => {
       const cameraSelect = document.getElementsByTagName("select")[0];
       if (cameraSelect) {
-        // Buscamos la opción que contenga "back" o "environment"
+        // Buscamos opciones que indiquen cámara trasera
+        let rearCameraIndex = -1;
         for (let i = 0; i < cameraSelect.options.length; i++) {
-          if (cameraSelect.options[i].text.toLowerCase().includes("back") || 
-              cameraSelect.options[i].text.toLowerCase().includes("environment")) {
-            cameraSelect.selectedIndex = i;
-            cameraSelect.dispatchEvent(new Event('change'));
+          const text = cameraSelect.options[i].text.toLowerCase();
+          if (text.includes("back") || text.includes("rear") || text.includes("environment")) {
+            rearCameraIndex = i;
             break;
           }
         }
+        
+        if (rearCameraIndex !== -1) {
+          cameraSelect.selectedIndex = rearCameraIndex;
+          cameraSelect.dispatchEvent(new Event('change'));
+        }
       }
-    } catch (e) {
-      console.warn("No se pudo autoseleccionar la cámara trasera automáticamente.");
-    }
+    };
+
+    const timer = setTimeout(forceRearCamera, 1500);
 
     return () => {
-      scanner.clear().catch(error => {
-        console.error("Error deteniendo el escáner", error);
-      });
+      clearTimeout(timer);
+      scanner.clear().catch(console.error);
     };
   }, [navigate]);
 
@@ -71,7 +63,7 @@ function ScannerPage() {
     <div className="max-w-2xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-xl border border-gray-100 flex flex-col items-center">
       <h2 className="text-3xl font-bold text-blue-950 mb-4 text-center">Escanear Ponencia</h2>
       <p className="text-gray-500 text-center mb-8">
-        Enfoque el código QR del póster con su cámara para acceder a la rúbrica de evaluación.
+        El sistema intentará activar la cámara trasera automáticamente en un momento.
       </p>
 
       {errorLectura && (
