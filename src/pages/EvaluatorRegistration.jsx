@@ -73,8 +73,8 @@ function EvaluatorRegistration() {
 
   return (
     <div className="max-w-2xl mx-auto bg-white p-4 md:p-10 rounded-2xl shadow-xl border border-gray-100">
-      <h2 className="text-2xl md:text-3xl font-bold text-blue-950 mb-2 text-center">Registro de Evaluadores</h2>
-      <p className="text-gray-500 text-center mb-8 text-sm md:text-base px-2">Complete sus datos para habilitarse como evaluador del semillero</p>
+      <h2 className="text-2xl md:text-3xl font-bold text-blue-950 mb-2 text-center">Formulario de asistencia para evaluadores</h2>
+      <p className="text-gray-500 text-center mb-8 text-sm md:text-base px-2">I Encuentro Regional de Investigación e Innovación en Ingeniería ACOFI 2026</p>
 
       {mensaje.texto && (
         <div className={`p-4 mb-6 rounded-lg font-medium text-center text-sm md:text-base ${
