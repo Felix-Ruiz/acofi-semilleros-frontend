@@ -13,7 +13,7 @@ function ScannerPage() {
       { 
         fps: 10, 
         qrbox: { width: 250, height: 250 },
-        facingMode: { exact: "environment" } 
+        facingMode:"environment"
       },
       false
     );
