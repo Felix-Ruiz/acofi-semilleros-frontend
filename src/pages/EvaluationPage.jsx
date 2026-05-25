@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 
+// URL base de producción
+const API_URL = "https://acofi-backend.onrender.com";
+
 function EvaluationPage() {
   const { codigoQR } = useParams(); // Captura el código si vienen desde el QR
   const navigate = useNavigate();
@@ -30,7 +33,7 @@ function EvaluationPage() {
   useEffect(() => {
     const cargarPonencias = async () => {
       try {
-        const respuesta = await axios.get('https://acofi-backend.onrender.com/api/admin/ponencias');
+        const respuesta = await axios.get(`${API_URL}/api/admin/ponencias`);
         const aprobadas = respuesta.data.filter(p => p.estado === 'aceptada');
         setPonencias(aprobadas);
 
@@ -92,7 +95,7 @@ function EvaluationPage() {
     };
 
     try {
-      const respuesta = await axios.post('https://acofi-backend.onrender.com/api/evaluaciones/calificar', payload);
+      const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
       setTimeout(() => navigate('/'), 3000);
     } catch (error) {

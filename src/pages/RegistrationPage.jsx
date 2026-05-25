@@ -93,80 +93,80 @@ function RegistrationPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-xl border border-gray-100">
-      <h2 className="text-3xl font-bold text-blue-950 mb-2 text-center">Inscripción de Estudiantes</h2>
-      <p className="text-gray-500 text-center mb-8">Complete todos los campos para registrar su ponencia en el encuentro</p>
+    <div className="max-w-2xl mx-auto bg-white p-4 md:p-10 rounded-2xl shadow-xl border border-gray-100">
+      <h2 className="text-2xl md:text-3xl font-bold text-blue-950 mb-2 text-center">Inscripción de Estudiantes</h2>
+      <p className="text-gray-500 text-center mb-8 text-sm md:text-base px-2">Complete todos los campos para registrar su ponencia en el encuentro</p>
 
       {mensaje.texto && (
-        <div className={`p-4 mb-6 rounded-lg font-medium text-center ${
+        <div className={`p-4 mb-6 rounded-lg font-medium text-center text-sm md:text-base ${
           mensaje.tipo === 'exito' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
         }`}>
           {mensaje.texto}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Nombres y Apellidos</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Nombres y Apellidos</label>
           <input
             type="text"
             name="nombres_apellidos"
             required
             value={formData.nombres_apellidos}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all text-sm md:text-base"
             placeholder="Ej: Juan Pérez"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Número de Documento de Identidad</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Número de Documento de Identidad</label>
           <input
             type="text"
             name="documento_identidad"
             required
             value={formData.documento_identidad}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all text-sm md:text-base"
             placeholder="Cédula o Tarjeta de Identidad"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Institución</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Institución</label>
           <input
             type="text"
             name="institucion"
             required
             value={formData.institucion}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all text-sm md:text-base"
             placeholder="Nombre de la Universidad o Institución"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Correo Electrónico</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Correo Electrónico</label>
           <input
             type="email"
             name="correo"
             required
             value={formData.correo}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all text-sm md:text-base"
             placeholder="ejemplo@correo.com"
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Ciudad</label>
             <select
               name="ciudad_seleccionada"
               required
               value={formData.ciudad_seleccionada}
               onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all text-sm md:text-base"
             >
               <option value="">Seleccione una ciudad</option>
               {ciudadesColombia.map((ciudad) => (
@@ -177,13 +177,13 @@ function RegistrationPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Cargo</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Cargo</label>
             <select
               name="cargo"
               required
               value={formData.cargo}
               onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all text-sm md:text-base"
             >
               <option value="">Seleccione su cargo</option>
               <option value="Lider de semillero">Lider de semillero</option>
@@ -195,44 +195,44 @@ function RegistrationPage() {
 
         {formData.ciudad_seleccionada === 'Otra' && (
           <div className="animate-fadeIn">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Escriba el nombre de la Ciudad</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Escriba el nombre de la Ciudad</label>
             <input
               type="text"
               name="ciudad_otra"
               required={formData.ciudad_seleccionada === 'Otra'}
               value={formData.ciudad_otra}
               onChange={handleChange}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all text-sm md:text-base"
               placeholder="¿Qué ciudad?"
             />
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Nombre del trabajo que representa</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre del trabajo que representa</label>
           <textarea
             name="nombre_trabajo"
             required
             rows="3"
             value={formData.nombre_trabajo}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all resize-none"
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all resize-none text-sm md:text-base"
             placeholder="Debe ser el mismo enviado en la carta de notificación de la tercera fase"
           />
         </div>
 
-        <div className="flex space-x-4 pt-4">
+        <div className="flex flex-col md:flex-row gap-3 pt-2">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="w-1/3 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-colors text-center"
+            className="w-full md:w-1/3 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-colors text-center text-sm md:text-base"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={cargando}
-            className="w-2/3 px-4 py-3 bg-blue-900 text-white rounded-xl hover:bg-blue-800 font-semibold shadow-lg transition-colors text-center disabled:opacity-50"
+            className="w-full md:w-2/3 px-4 py-3 bg-blue-900 text-white rounded-xl hover:bg-blue-800 font-semibold shadow-lg transition-colors text-center disabled:opacity-50 text-sm md:text-base"
           >
             {cargando ? 'Registrando...' : 'Enviar Inscripción'}
           </button>
