@@ -7,10 +7,14 @@ function ScannerPage() {
   const [errorLectura, setErrorLectura] = useState('');
 
   useEffect(() => {
-    // Configuración del escáner
+    // Configuración del escáner con cámara trasera forzada
     const scanner = new Html5QrcodeScanner(
       "qr-reader",
-      { fps: 10, qrbox: { width: 250, height: 250 } },
+      { 
+        fps: 10, 
+        qrbox: { width: 250, height: 250 },
+        facingMode: { exact: "environment" } 
+      },
       false
     );
 
