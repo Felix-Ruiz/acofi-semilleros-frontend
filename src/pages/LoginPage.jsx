@@ -22,13 +22,17 @@ function LoginPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/login`, formData);
       
-      // Guardamos la sesión en el navegador (Local Storage)
       localStorage.setItem('usuario_logueado', 'true');
       localStorage.setItem('usuario_nombre', respuesta.data.nombre);
       localStorage.setItem('usuario_tipo', respuesta.data.tipo_usuario);
+      localStorage.setItem('usuario_id', respuesta.data.id); // Guardamos el ID para el perfil
       
-      // Enviamos al usuario a la vista de escanear/evaluar
-      navigate('/escanear');
+      // LÓGICA INTUITIVA DE REDIRECCIÓN POR PERFIL
+      if (respuesta.data.tipo_usuario === 'estudiante') {
+        navigate('/mi-ponencia');
+      } else {
+        navigate('/escanear');
+      }
     } catch (error) {
       setMensaje({ 
         tipo: 'error', 

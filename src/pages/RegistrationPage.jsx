@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-// URL base de producción
 const API_URL = "https://acofi-backend.onrender.com";
 
 function RegistrationPage() {
@@ -20,8 +19,15 @@ function RegistrationPage() {
 
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
+  
+  // NUEVOS ESTADOS: Control de inscripciones y sugerencias de ponencias
+  const [registroAbierto, setRegistroAbierto] = useState(true);
+  const [verificandoEstado, setVerificandoEstado] = useState(true);
+  const [titulosExistentes, setTitulosExistentes] = useState([]);
+  const [sugerencias, setSugerencias] = useState([]);
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+  const contenedorSugerenciasRef = useRef(null);
 
-  // Lista actualizada con todas las ciudades proporcionadas
   const ciudadesColombia = [
     'Arauca', 'Armenia', 'Barranquilla', 'Bogotá D.C.', 'Bucaramanga', 
     'Cali', 'Cartagena de Indias', 'Cúcuta', 'Florencia', 'Ibagué', 
@@ -32,9 +38,63 @@ function RegistrationPage() {
     'Valledupar', 'Villavicencio', 'Yopal'
   ];
 
+  // NUEVO: Cargar configuración y lista de ponencias al montar el componente
+  useEffect(() => {
+    const cargarDatosIniciales = async () => {
+      try {
+        const resConfig = await axios.get(`${API_URL}/api/admin/configuracion`);
+        setRegistroAbierto(resConfig.data.registro_abierto);
+
+        // Si está abierto, cargamos los títulos para el autocompletado
+        if (resConfig.data.registro_abierto) {
+          const resPonencias = await axios.get(`${API_URL}/api/admin/ponencias`);
+          // Extraemos solo los títulos y eliminamos duplicados
+          const titulosUnicos = [...new Set(resPonencias.data.map(p => p.titulo))];
+          setTitulosExistentes(titulosUnicos);
+        }
+      } catch (error) {
+        console.error("Error al verificar el estado del sistema.");
+      } finally {
+        setVerificandoEstado(false);
+      }
+    };
+
+    cargarDatosIniciales();
+
+    // Cerrar sugerencias si hace clic fuera
+    const handleClickFuera = (event) => {
+      if (contenedorSugerenciasRef.current && !contenedorSugerenciasRef.current.contains(event.target)) {
+        setMostrarSugerencias(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickFuera);
+    return () => document.removeEventListener("mousedown", handleClickFuera);
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+  };
+
+  // NUEVO: Manejador específico para el título del trabajo (Busca coincidencias)
+  const handleTrabajoChange = (e) => {
+    const valor = e.target.value;
+    setFormData({ ...formData, nombre_trabajo: valor });
+
+    if (valor.trim().length > 2) {
+      const filtradas = titulosExistentes.filter(t => 
+        t.toLowerCase().includes(valor.toLowerCase())
+      );
+      setSugerencias(filtradas);
+      setMostrarSugerencias(filtradas.length > 0);
+    } else {
+      setMostrarSugerencias(false);
+    }
+  };
+
+  const seleccionarSugerencia = (titulo) => {
+    setFormData({ ...formData, nombre_trabajo: titulo });
+    setMostrarSugerencias(false);
   };
 
   const handleSubmit = async (e) => {
@@ -42,7 +102,6 @@ function RegistrationPage() {
     setCargando(true);
     setMensaje({ tipo: '', texto: '' });
 
-    // Determinar el valor final de la ciudad
     const ciudadFinal = formData.ciudad_seleccionada === 'Otra' 
       ? formData.ciudad_otra 
       : formData.ciudad_seleccionada;
@@ -60,14 +119,13 @@ function RegistrationPage() {
       correo: formData.correo,
       ciudad: ciudadFinal,
       cargo: formData.cargo,
-      nombre_trabajo: formData.nombre_trabajo
+      nombre_trabajo: formData.nombre_trabajo.trim() // Limpiar espacios extras
     };
 
     try {
       const respuesta = await axios.post(`${API_URL}/api/estudiantes/registro`, datosParaEnviar);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
       
-      // Limpiar formulario
       setFormData({
         nombres_apellidos: '',
         documento_identidad: '',
@@ -79,7 +137,6 @@ function RegistrationPage() {
         nombre_trabajo: ''
       });
 
-      // Redirigir al inicio después de 3 segundos
       setTimeout(() => {
         navigate('/');
       }, 3500);
@@ -92,6 +149,39 @@ function RegistrationPage() {
     }
   };
 
+  // PANTALLA DE CARGA INICIAL
+  if (verificandoEstado) {
+    return (
+      <div className="max-w-2xl mx-auto bg-white p-10 rounded-2xl shadow-xl border border-gray-100 text-center">
+        <p className="text-blue-900 font-bold text-lg animate-pulse">Verificando disponibilidad de inscripciones...</p>
+      </div>
+    );
+  }
+
+  // PANTALLA DE INSCRIPCIONES CERRADAS
+  if (!registroAbierto) {
+    return (
+      <div className="max-w-2xl mx-auto bg-white p-10 rounded-2xl shadow-xl border border-gray-100 text-center">
+        <div className="w-20 h-20 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">Inscripciones Cerradas</h2>
+        <p className="text-gray-600 mb-8 max-w-md mx-auto">
+          El proceso de registro de ponencias para el I Encuentro Regional de Investigación e Innovación en Ingeniería ACOFI 2026 ha finalizado.
+        </p>
+        <button
+          onClick={() => navigate('/')}
+          className="px-6 py-3 bg-blue-900 text-white rounded-xl hover:bg-blue-800 font-semibold shadow-lg transition-colors"
+        >
+          Volver al Inicio
+        </button>
+      </div>
+    );
+  }
+
+  // FORMULARIO PRINCIPAL
   return (
     <div className="max-w-2xl mx-auto bg-white p-4 md:p-10 rounded-2xl shadow-xl border border-gray-100">
       <h2 className="text-2xl md:text-3xl font-bold text-blue-950 mb-2 text-center">Formulario de asistencia</h2>
@@ -208,17 +298,38 @@ function RegistrationPage() {
           </div>
         )}
 
-        <div>
+        <div className="relative" ref={contenedorSugerenciasRef}>
           <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre del trabajo que representa</label>
           <textarea
             name="nombre_trabajo"
             required
             rows="3"
             value={formData.nombre_trabajo}
-            onChange={handleChange}
+            onChange={handleTrabajoChange}
+            onFocus={() => { if(sugerencias.length > 0) setMostrarSugerencias(true) }}
             className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none transition-all resize-none text-sm md:text-base"
             placeholder="Debe ser el mismo enviado en la carta de notificación de la tercera fase"
           />
+          
+          {/* LISTA DESPLEGABLE DE SUGERENCIAS */}
+          {mostrarSugerencias && sugerencias.length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl max-h-48 overflow-y-auto divide-y divide-gray-100">
+              <div className="px-3 py-2 bg-blue-50 text-xs font-bold text-blue-900 uppercase sticky top-0">
+                Proyectos Registrados (Haga clic para unirse al grupo)
+              </div>
+              <ul className="py-1">
+                {sugerencias.map((titulo, idx) => (
+                  <li 
+                    key={idx} 
+                    onClick={() => seleccionarSugerencia(titulo)}
+                    className="px-4 py-3 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 transition-colors"
+                  >
+                    {titulo}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col md:flex-row gap-3 pt-2">

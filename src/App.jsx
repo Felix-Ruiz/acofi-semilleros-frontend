@@ -6,18 +6,17 @@ import EvaluatorRegistration from './pages/EvaluatorRegistration';
 import EvaluationPage from './pages/EvaluationPage';
 import ScannerPage from './pages/ScannerPage';
 import LoginPage from './pages/LoginPage';
-import AdminLoginPage from './pages/AdminLoginPage'; // Importación de la nueva página de login admin
+import AdminLoginPage from './pages/AdminLoginPage';
+import StudentDashboard from './pages/StudentDashboard'; // Nueva importación
 
-// Componente para proteger las rutas de evaluadores/estudiantes
 const PrivateRoute = ({ children }) => {
   const isAuth = localStorage.getItem('usuario_logueado');
   return isAuth ? children : <Navigate to="/login" />;
 };
 
-// Componente exclusivo para proteger el panel de administración
 const AdminRoute = ({ children }) => {
   const isAdmin = localStorage.getItem('admin_logueado');
-  return isAdmin ? children : <Navigate to="/admin-login" />;
+  return isAdmin ? children : <Navigate to="/portal-interno-acofi" />;
 };
 
 function App() {
@@ -36,27 +35,21 @@ function App() {
                 <p className="text-gray-700 text-lg md:text-xl text-center mb-10 max-w-2xl">
                   Seleccione su perfil para continuar en la plataforma de gestión y evaluación.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                {/* GRID OCULTO: Ya no contiene el botón gris de Administración */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
                   <Link
                     to="/registro"
                     className="flex flex-col items-center justify-center bg-blue-900 text-white p-8 rounded-xl shadow-lg hover:bg-blue-800 transition-colors duration-300 text-center"
                   >
                     <span className="text-2xl font-semibold mb-2">Estudiantes</span>
-                    <span className="text-sm opacity-80">Registrar ponencia</span>
+                    <span className="text-sm opacity-80">Registrar ponencia o ver QR</span>
                   </Link>
                   <Link
-                    to="/escanear"
+                    to="/login"
                     className="flex flex-col items-center justify-center bg-blue-700 text-white p-8 rounded-xl shadow-lg hover:bg-blue-600 transition-colors duration-300 text-center"
                   >
-                    <span className="text-2xl font-semibold mb-2">Evaluadores</span>
-                    <span className="text-sm opacity-80">Escanear póster</span>
-                  </Link>
-                  <Link
-                    to="/admin"
-                    className="flex flex-col items-center justify-center bg-gray-800 text-white p-8 rounded-xl shadow-lg hover:bg-gray-700 transition-colors duration-300 text-center"
-                  >
-                    <span className="text-2xl font-semibold mb-2">Administración</span>
-                    <span className="text-sm opacity-80">Panel de control</span>
+                    <span className="text-2xl font-semibold mb-2">Evaluadores / Estudiantes</span>
+                    <span className="text-sm opacity-80">Acceso al Sistema</span>
                   </Link>
                 </div>
               </div>
@@ -66,10 +59,13 @@ function App() {
             <Route path="/registro" element={<RegistrationPage />} />
             <Route path="/registro-evaluador" element={<EvaluatorRegistration />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/admin-login" element={<AdminLoginPage />} /> {/* Nueva ruta pública de Login Admin */}
+            
+            {/* URL DE ADMINISTRADOR COMPLETAMENTE OCULTA Y CAMBIADA */}
+            <Route path="/portal-interno-acofi" element={<AdminLoginPage />} />
 
             {/* Rutas Protegidas */}
             <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
+            <Route path="/mi-ponencia" element={<PrivateRoute><StudentDashboard /></PrivateRoute>} />
             <Route path="/evaluar" element={<PrivateRoute><EvaluationPage /></PrivateRoute>} />
             <Route path="/evaluar/:codigoQR" element={<PrivateRoute><EvaluationPage /></PrivateRoute>} />
             <Route path="/escanear" element={<PrivateRoute><ScannerPage /></PrivateRoute>} />
