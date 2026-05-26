@@ -98,12 +98,13 @@ function AdminPanel() {
   };
 
   const aprobarPonencia = async (id) => {
+    setMensaje({ tipo: '', texto: 'Aprobando ponencia y generando QR...' });
     try {
       const respuesta = await axios.post(`${API_URL}/api/admin/aceptar_ponencia/${id}`);
       setMensaje({ tipo: 'exito', texto: `¡Ponencia aprobada! Código asignado: ${respuesta.data.codigo_asignado}` });
       cargarDatos();
     } catch (error) {
-      setMensaje({ tipo: 'error', texto: 'Error al aprobar la ponencia' });
+      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al aprobar la ponencia' });
     }
   };
 
@@ -240,7 +241,7 @@ function AdminPanel() {
       const res = await axios.post(`${API_URL}/api/admin/enviar_qrs`, payload);
       setMensaje({ tipo: 'exito', texto: res.data.mensaje });
     } catch (error) {
-      setMensaje({ tipo: 'error', texto: 'Error al enviar los correos.' });
+      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error de conexión o fallo en Brevo.' });
     } finally {
       setProcesandoAccion(false);
     }
