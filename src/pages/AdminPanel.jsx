@@ -28,8 +28,6 @@ function AdminPanel() {
 
   const [formPonencia, setFormPonencia] = useState({ titulo: '', estudiante_nombre: '', estudiante_documento: '', estudiante_institucion: '', estudiante_correo: '', estudiante_ciudad: '', estudiante_cargo: '' });
   const [formEvaluador, setFormEvaluador] = useState({ nombres_apellidos: '', documento_identidad: '', institucion: '', correo: '', cargo: '', evento_id: '1' });
-  
-  // NUEVO: Formulario exclusivo para estudiantes individuales
   const [formEstudiante, setFormEstudiante] = useState({ nombres_apellidos: '', documento_identidad: '', institucion: '', correo: '', ciudad: '', cargo: '', nombre_trabajo: '' });
 
   const urlRegistroEvaluador = `${window.location.origin}/registro-evaluador`;
@@ -138,7 +136,6 @@ function AdminPanel() {
     setModalAbierto(true);
   };
 
-  // NUEVO: Soporte extendido para editar estudiantes individuales
   const abrirEditarModal = (entidad, item) => {
     setModalModo('editar');
     setModalEntidad(entidad);
@@ -191,8 +188,11 @@ function AdminPanel() {
 
     try {
       if (modalModo === 'crear') {
-        await axios.post(urlBase, payload);
-        setMensaje({ tipo: 'exito', texto: 'Registro creado exitosamente.' });
+        const respuesta = await axios.post(urlBase, payload);
+        const textoExito = respuesta.data.pin 
+          ? `${respuesta.data.mensaje} | PIN DE ACCESO: ${respuesta.data.pin}` 
+          : respuesta.data.mensaje || 'Registro creado exitosamente.';
+        setMensaje({ tipo: 'exito', texto: textoExito });
       } else {
         await axios.put(`${urlBase}/${idSeleccionado}`, payload);
         setMensaje({ tipo: 'exito', texto: 'Registro actualizado con éxito.' });
@@ -246,12 +246,11 @@ function AdminPanel() {
     }
   };
 
-  // NUEVO: Envío individual a un integrante aislado desde la pestaña de Estudiantes
   const enviarCorreoIndividualEstudiante = async (id) => {
     const confirmacion = window.confirm("¿Enviar credencial digital (QR + PIN) de manera exclusiva a este estudiante?");
     if (!confirmacion) return;
     setProcesandoAccion(true);
-    setMensaje({ tipo: '', texto: 'Despachando correo individual a Brevo...' });
+    setMensaje({ tipo: '', texto: 'Despachando correo individual...' });
     try {
       const res = await axios.post(`${API_URL}/api/admin/enviar_qr_estudiante/${id}`);
       setMensaje({ tipo: 'exito', texto: res.data.mensaje });
@@ -373,7 +372,7 @@ function AdminPanel() {
                     <td className="p-4 text-center space-y-1">
                       {p.estado === 'pendiente' && <button onClick={() => aprobarPonencia(p.id)} className="block w-full px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium">Aprobar</button>}
                       {p.estado === 'aceptada' && ( <> <a href={`/evaluar/${p.codigo}`} target="_blank" rel="noopener noreferrer" className="block w-full px-2 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 rounded text-xs font-medium text-center">📝 Evaluar</a> <button onClick={() => enviarCorreos(p.id)} disabled={procesandoAccion} className="block w-full px-2 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-xs font-medium">✉️ Grupo QR</button> </> )}
-                      <button onClick={() => requestingEliminacion('ponencias', p.id)} className="block w-full px-2 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded text-xs font-medium">Eliminar</button>
+                      <button onClick={() => solicitarEliminacion('ponencias', p.id)} className="block w-full px-2 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded text-xs font-medium">Eliminar</button>
                     </td>
                   </tr>
                 ))}
@@ -381,7 +380,7 @@ function AdminPanel() {
             </table>
           )}
 
-          {/* NUEVO: ACCIONES COMPLETAS EN LA VISTA ESTUDIANTES */}
+          {/* VISTA ESTUDIANTES */}
           {vistaActual === 'estudiantes' && (
             <table className="w-full text-left border-collapse min-w-200">
               <thead>
@@ -515,7 +514,6 @@ function AdminPanel() {
                 </>
               )}
 
-              {/* INTERFAZ INYECTADA PARA ESTUDIANTES INDIVIDUALES */}
               {modalEntidad === 'estudiante' && (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -571,6 +569,28 @@ function AdminPanel() {
                     <div>
                       <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Documento</label>
                       <input type="text" required value={formEvaluador.documento_identidad} onChange={(e) => setFormEvaluador({...formEvaluador, documento_identidad: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Institución de Procedencia</label>
+                      <input type="text" required value={formEvaluador.institucion} onChange={(e) => setFormEvaluador({...formEvaluador, institucion: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Correo de Contacto</label>
+                      <input type="email" required value={formEvaluador.correo} onChange={(e) => setFormEvaluador({...formEvaluador, correo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Cargo Académico</label>
+                      <input type="text" required value={formEvaluador.cargo} onChange={(e) => setFormEvaluador({...formEvaluador, cargo: e.target.value})} placeholder="Ej: Docente" className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Evento Sede Encuentro</label>
+                      <select value={formEvaluador.evento_id} onChange={(e) => setFormEvaluador({...formEvaluador, evento_id: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white">
+                        {eventosDisponibles.map(ev => <option key={ev.id} value={ev.id}>{ev.nombre}</option>)}
+                      </select>
                     </div>
                   </div>
                 </>
