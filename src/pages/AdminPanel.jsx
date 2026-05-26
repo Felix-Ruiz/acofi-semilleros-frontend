@@ -73,6 +73,30 @@ function AdminPanel() {
     }
   };
 
+  // --- NUEVA FUNCIÓN DE BORRADO MASIVO CON CANDADO DE SEGURIDAD ---
+  const borrarTodos = async (entidad) => {
+    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?\n\nEsta acción borrará a todos los usuarios, códigos, ponencias y evaluaciones. NO SE PUEDE DESHACER.`);
+    if (!confirmacion) return;
+    
+    const confirmacion2 = window.prompt(`Para confirmar, escribe exactamente la palabra "ELIMINAR"`);
+    if (confirmacion2 !== "ELIMINAR") {
+        setMensaje({ tipo: 'error', texto: 'Operación cancelada. No se ingresó la palabra de seguridad.' });
+        return;
+    }
+
+    setProcesandoAccion(true);
+    setMensaje({ tipo: '', texto: `Vaciando la base de datos de ${entidad}...` });
+    try {
+      await axios.delete(`${API_URL}/api/admin/borrar_todos/${entidad}`);
+      setMensaje({ tipo: 'exito', texto: `Se han eliminado todos los registros de ${entidad}.` });
+      cargarDatos();
+    } catch (error) {
+      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al eliminar masivamente.' });
+    } finally {
+      setProcesandoAccion(false);
+    }
+  };
+
   const aprobarPonencia = async (id) => {
     try {
       const respuesta = await axios.post(`${API_URL}/api/admin/aceptar_ponencia/${id}`);
@@ -169,7 +193,7 @@ function AdminPanel() {
     formData.append('file', file);
     
     setProcesandoAccion(true);
-    setMensaje({ tipo: '', texto: 'Procesando archivo, agrupadando estudiantes... Por favor espere.' });
+    setMensaje({ tipo: '', texto: 'Procesando archivo, validando códigos... Por favor espere.' });
     try {
       await axios.post(`${API_URL}/api/admin/cargar_excel`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -273,6 +297,9 @@ function AdminPanel() {
             <button onClick={() => enviarCorreos()} disabled={procesandoAccion} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">
               {procesandoAccion ? 'Procesando...' : '✉️ Enviar Todos los QRs'}
             </button>
+            <button onClick={() => borrarTodos('ponencias')} disabled={procesandoAccion} className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">
+              🗑️ Borrar Todo
+            </button>
           </div>
         )}
 
@@ -300,6 +327,9 @@ function AdminPanel() {
             <button onClick={() => abrirCrearModal('evaluador')} className="px-4 py-2 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">
               + Añadir Evaluador
             </button>
+            <button onClick={() => borrarTodos('evaluadores')} disabled={procesandoAccion} className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">
+              🗑️ Borrar Todo
+            </button>
           </div>
         )}
       </div>
@@ -311,7 +341,6 @@ function AdminPanel() {
       ) : (
         <div className="w-full overflow-x-auto pb-4">
           
-          {/* TABLA DE PONENCIAS (GRUPOS) */}
           {vistaActual === 'ponencias' && (
             ponenciasMostradas.length === 0 ? (
               <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-200"><p className="text-gray-500 text-lg">No se encontraron ponencias.</p></div>
@@ -362,7 +391,6 @@ function AdminPanel() {
             )
           )}
 
-          {/* NUEVA TABLA DE ESTUDIANTES INDIVIDUALES */}
           {vistaActual === 'estudiantes' && (
             estudiantesMostrados.length === 0 ? (
               <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-200"><p className="text-gray-500 text-lg">No se encontraron estudiantes registrados.</p></div>
@@ -393,7 +421,6 @@ function AdminPanel() {
             )
           )}
 
-          {/* TABLA DE EVALUADORES */}
           {vistaActual === 'evaluadores' && (
             evaluadoresMostrados.length === 0 ? (
               <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-200"><p className="text-gray-500 text-lg">No se encontraron evaluadores.</p></div>
@@ -427,7 +454,6 @@ function AdminPanel() {
             )
           )}
 
-          {/* RANKING */}
           {vistaActual === 'ranking' && (
             ranking.length === 0 ? (
               <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-200"><p className="text-gray-500 text-lg">Sin datos para rankear.</p></div>
@@ -469,7 +495,6 @@ function AdminPanel() {
         </div>
       )}
 
-      {/* MODAL ELIMINAR Y FORMULARIO OMITIDOS PARA BREVEDAD, SE MANTIENEN IDÉNTICOS A TU VERSIÓN ANTERIOR */}
       {modalConfirmacion.abierto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
           <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 border-t-4 border-red-600 animate-fadeIn text-center">
@@ -483,7 +508,6 @@ function AdminPanel() {
         </div>
       )}
       
-      {/* MODAL CREAR/EDITAR (Simplificado aquí pero debes mantener el tuyo con todos los inputs) */}
       {modalAbierto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
             <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 border-t-4 border-blue-600 animate-fadeIn text-center">
