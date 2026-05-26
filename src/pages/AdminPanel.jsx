@@ -12,6 +12,11 @@ function AdminPanel() {
   const [cargando, setCargando] = useState(true);
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
 
+  // Nuevos estados para los filtros y procesos en segundo plano
+  const [filtroPonencias, setFiltroPonencias] = useState('');
+  const [filtroEvaluadores, setFiltroEvaluadores] = useState('');
+  const [procesandoAccion, setProcesandoAccion] = useState(false);
+
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modalModo, setModalModo] = useState('crear');
   const [modalEntidad, setModalEntidad] = useState('ponencia');
@@ -143,12 +148,70 @@ function AdminPanel() {
     window.open(`${API_URL}/api/admin/exportar/${entidad}`, '_blank');
   };
 
+  // --- NUEVAS FUNCIONES DE ADMINISTRACIÓN ---
+  const cargarExcel = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    setProcesandoAccion(true);
+    setMensaje({ tipo: '', texto: 'Procesando archivo, por favor espere...' });
+    try {
+      await axios.post(`${API_URL}/api/admin/cargar_excel`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setMensaje({ tipo: 'exito', texto: 'Excel cargado y datos procesados correctamente.' });
+      cargarDatos();
+    } catch (error) {
+      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al cargar Excel' });
+    } finally {
+      setProcesandoAccion(false);
+      e.target.value = null;
+    }
+  };
+
+  const enviarCorreos = async (id_ponencia = null) => {
+    const confirmacion = window.confirm(id_ponencia ? "¿Enviar correo a este estudiante?" : "¿Está seguro de enviar masivamente los QRs a TODOS los estudiantes aprobados?");
+    if (!confirmacion) return;
+
+    setProcesandoAccion(true);
+    setMensaje({ tipo: '', texto: 'Enviando correos, esto puede tardar un momento...' });
+    try {
+      const payload = id_ponencia ? { id_ponencia } : {};
+      const res = await axios.post(`${API_URL}/api/admin/enviar_qrs`, payload);
+      setMensaje({ tipo: 'exito', texto: res.data.mensaje });
+    } catch (error) {
+      setMensaje({ tipo: 'error', texto: 'Error al enviar los correos.' });
+    } finally {
+      setProcesandoAccion(false);
+    }
+  };
+
+  // Lógica de filtrado en vivo
+  const ponenciasMostradas = ponencias.filter(p => 
+    p.titulo.toLowerCase().includes(filtroPonencias.toLowerCase()) ||
+    p.estudiante_nombre.toLowerCase().includes(filtroPonencias.toLowerCase()) ||
+    p.estudiante_documento.includes(filtroPonencias) ||
+    (p.codigo && p.codigo.includes(filtroPonencias))
+  );
+
+  const evaluadoresMostrados = evaluadores.filter(e => 
+    e.nombres_apellidos.toLowerCase().includes(filtroEvaluadores.toLowerCase()) ||
+    e.documento_identidad.includes(filtroEvaluadores) ||
+    e.correo.toLowerCase().includes(filtroEvaluadores.toLowerCase())
+  );
+
   return (
     <div className="max-w-7xl mx-auto bg-white p-4 md:p-10 rounded-2xl shadow-xl border border-gray-100 w-full overflow-hidden">
       
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b pb-4 gap-4">
         <h2 className="text-2xl md:text-3xl font-bold text-gray-800 text-center md:text-left">Panel de Administración</h2>
         <div className="flex flex-wrap gap-2 justify-center">
+          <label className={`px-3 py-2 text-white text-xs md:text-sm rounded-lg font-medium transition-colors cursor-pointer ${procesandoAccion ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
+            {procesandoAccion ? 'Procesando...' : 'Subir Excel'}
+            <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={cargarExcel} disabled={procesandoAccion} />
+          </label>
           <button onClick={() => descargarExcel('estudiantes')} className="px-3 py-2 bg-green-600 text-white text-xs md:text-sm rounded-lg hover:bg-green-700 font-medium transition-colors">Excel Estudiantes</button>
           <button onClick={() => descargarExcel('evaluadores')} className="px-3 py-2 bg-green-600 text-white text-xs md:text-sm rounded-lg hover:bg-green-700 font-medium transition-colors">Excel Evaluadores</button>
           <button onClick={() => descargarExcel('ponencias')} className="px-3 py-2 bg-green-600 text-white text-xs md:text-sm rounded-lg hover:bg-green-700 font-medium transition-colors">Excel Ponencias</button>
@@ -168,11 +231,38 @@ function AdminPanel() {
           <button onClick={() => setVistaActual('qr')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'qr' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>QR Evaluadores</button>
         </div>
 
+        {/* Interfaz adaptativa según la vista actual */}
         {vistaActual === 'ponencias' && (
-          <button onClick={() => abrirCrearModal('ponencia')} className="px-4 py-2 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 shadow-md transition-colors text-sm w-full lg:w-auto">+ Añadir Ponencia</button>
+          <div className="flex flex-col md:flex-row gap-2 w-full lg:w-auto">
+            <input 
+              type="text" 
+              placeholder="Buscar título, estudiante, código..." 
+              value={filtroPonencias} 
+              onChange={(e) => setFiltroPonencias(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64 outline-none focus:ring-2 focus:ring-blue-900"
+            />
+            <button onClick={() => enviarCorreos()} disabled={procesandoAccion} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">
+              {procesandoAccion ? 'Procesando...' : '✉️ Enviar Todos los QRs'}
+            </button>
+            <button onClick={() => abrirCrearModal('ponencia')} className="px-4 py-2 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">
+              + Añadir Ponencia
+            </button>
+          </div>
         )}
+
         {vistaActual === 'evaluadores' && (
-          <button onClick={() => abrirCrearModal('evaluador')} className="px-4 py-2 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 shadow-md transition-colors text-sm w-full lg:w-auto">+ Añadir Evaluador</button>
+          <div className="flex flex-col md:flex-row gap-2 w-full lg:w-auto">
+            <input 
+              type="text" 
+              placeholder="Buscar nombre, documento, correo..." 
+              value={filtroEvaluadores} 
+              onChange={(e) => setFiltroEvaluadores(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64 outline-none focus:ring-2 focus:ring-blue-900"
+            />
+            <button onClick={() => abrirCrearModal('evaluador')} className="px-4 py-2 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">
+              + Añadir Evaluador
+            </button>
+          </div>
         )}
       </div>
 
@@ -185,8 +275,8 @@ function AdminPanel() {
         <div className="w-full overflow-x-auto pb-4">
           
           {vistaActual === 'ponencias' && (
-            ponencias.length === 0 ? (
-              <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-200"><p className="text-gray-500 text-lg">Aún no hay ponencias.</p></div>
+            ponenciasMostradas.length === 0 ? (
+              <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-200"><p className="text-gray-500 text-lg">No se encontraron ponencias.</p></div>
             ) : (
               <table className="w-full text-left border-collapse min-w-200">
                 <thead>
@@ -199,22 +289,32 @@ function AdminPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {ponencias.map((p) => (
+                  {ponenciasMostradas.map((p) => (
                     <tr key={p.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors text-sm">
                       <td className="p-4"><p className="font-semibold text-gray-800">{p.titulo}</p></td>
-                      <td className="p-4"><p className="text-gray-800 font-medium">{p.estudiante_nombre}</p><p className="text-xs text-gray-500">{p.estudiante_institucion}</p></td>
+                      <td className="p-4">
+                        <p className="text-gray-800 font-medium">{p.estudiante_nombre}</p>
+                        <p className="text-xs text-gray-500">{p.estudiante_institucion}</p>
+                        <span className="block mt-1 text-xs font-bold text-blue-800 bg-blue-50 w-max px-2 py-0.5 rounded">PIN: {p.estudiante_pin || 'N/A'}</span>
+                      </td>
                       <td className="p-4"><span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${p.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{p.estado}</span></td>
                       <td className="p-4">
                         {p.codigo ? (
                           <div className="flex flex-col items-start">
                             <span className="font-mono bg-gray-200 px-2 py-1 rounded text-gray-800 font-bold block mb-1 text-center">{p.codigo}</span>
-                            <a href={`${API_URL}${p.url_qr}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline font-semibold">Ver Código QR</a>
+                            <a href={p.url_qr} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline font-semibold">Ver Código QR</a>
                           </div>
                         ) : <span className="text-gray-400 italic text-xs">Sin asignar</span>}
                       </td>
                       <td className="p-4 text-center space-y-1">
                         {p.estado === 'pendiente' && (
                           <button onClick={() => aprobarPonencia(p.id)} className="block w-full px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium transition-colors">Aprobar</button>
+                        )}
+                        {p.estado === 'aceptada' && (
+                          <>
+                            <a href={`/evaluar/${p.codigo}`} target="_blank" rel="noopener noreferrer" className="block w-full px-2 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 rounded text-xs font-medium transition-colors hover:bg-purple-100 text-center">📝 Evaluar</a>
+                            <button onClick={() => enviarCorreos(p.id)} disabled={procesandoAccion} className="block w-full px-2 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-xs font-medium transition-colors hover:bg-indigo-100">✉️ Enviar QR</button>
+                          </>
                         )}
                         <button onClick={() => abrirEditarModal('ponencia', p)} className="block w-full px-2 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium transition-colors hover:bg-gray-200">Editar</button>
                         <button onClick={() => solicitarEliminacion('ponencias', p.id)} className="block w-full px-2 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded text-xs font-medium transition-colors hover:bg-red-100">Eliminar</button>
@@ -227,23 +327,26 @@ function AdminPanel() {
           )}
 
           {vistaActual === 'evaluadores' && (
-            evaluadores.length === 0 ? (
-              <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-200"><p className="text-gray-500 text-lg">Aún no hay evaluadores.</p></div>
+            evaluadoresMostrados.length === 0 ? (
+              <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-200"><p className="text-gray-500 text-lg">No se encontraron evaluadores.</p></div>
             ) : (
               <table className="w-full text-left border-collapse min-w-200">
                 <thead>
                   <tr className="bg-blue-950 text-white text-sm">
                     <th className="p-4 font-semibold rounded-tl-xl w-1/3">Nombre del Evaluador</th>
-                    <th className="p-4 font-semibold">Documento</th>
+                    <th className="p-4 font-semibold">Documento / PIN</th>
                     <th className="p-4 font-semibold w-1/3">Institución / Cargo</th>
                     <th className="p-4 font-semibold text-center rounded-tr-xl">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {evaluadores.map((e) => (
+                  {evaluadoresMostrados.map((e) => (
                     <tr key={e.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors text-sm">
                       <td className="p-4"><p className="font-semibold text-gray-800">{e.nombres_apellidos}</p><p className="text-xs text-gray-500">{e.correo}</p></td>
-                      <td className="p-4 text-gray-700 font-mono">{e.documento_identidad}</td>
+                      <td className="p-4">
+                        <span className="text-gray-700 font-mono block">{e.documento_identidad}</span>
+                        <span className="block mt-1 text-xs font-bold text-blue-800 bg-blue-50 w-max px-2 py-0.5 rounded">PIN: {e.pin_acceso || 'N/A'}</span>
+                      </td>
                       <td className="p-4"><p className="text-gray-800 font-medium">{e.institucion}</p><p className="text-xs text-gray-500">{e.cargo} | <span className="italic text-blue-900">{e.evento.split(',')[0]}</span></p></td>
                       <td className="p-4 text-center space-y-1">
                         <button onClick={() => abrirEditarModal('evaluador', e)} className="block w-full px-2 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium transition-colors hover:bg-gray-200">Editar</button>

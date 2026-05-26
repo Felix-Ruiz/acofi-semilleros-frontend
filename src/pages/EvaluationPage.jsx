@@ -29,7 +29,7 @@ function EvaluationPage() {
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
 
-  // Cargar lista de ponencias aprobadas para el buscador
+  // Cargar lista de ponencias aprobadas
   useEffect(() => {
     const cargarPonencias = async () => {
       try {
@@ -51,21 +51,21 @@ function EvaluationPage() {
     cargarPonencias();
   }, [codigoQR]);
 
-  // Manejador para el buscador inteligente de títulos
-  const handleTituloChange = (e) => {
-    const tituloSeleccionado = e.target.value;
-    let nuevoCodigo = formData.codigo_poster;
+  // NUEVA LÓGICA: Manejador para cuando el evaluador escribe el CÓDIGO
+  const handleCodigoChange = (e) => {
+    const codigoIngresado = e.target.value;
+    let tituloEncontrado = '';
 
-    // Si el título coincide con una ponencia, autocompletamos el código
-    const ponenciaEncontrada = ponencias.find(p => p.titulo === tituloSeleccionado);
+    // Si el código coincide con una ponencia, autocompletamos el título
+    const ponenciaEncontrada = ponencias.find(p => p.codigo === codigoIngresado);
     if (ponenciaEncontrada) {
-      nuevoCodigo = ponenciaEncontrada.codigo;
+      tituloEncontrado = ponenciaEncontrada.titulo;
     }
 
     setFormData({
       ...formData,
-      titulo_poster: tituloSeleccionado,
-      codigo_poster: nuevoCodigo
+      codigo_poster: codigoIngresado,
+      titulo_poster: tituloEncontrado
     });
   };
 
@@ -84,6 +84,12 @@ function EvaluationPage() {
     e.preventDefault();
     setCargando(true);
     setMensaje({ tipo: '', texto: '' });
+
+    if (!formData.titulo_poster) {
+      setMensaje({ tipo: 'error', texto: 'Código de póster inválido. No se encontró ninguna ponencia con ese código.' });
+      setCargando(false);
+      return;
+    }
 
     const payload = {
       documento_evaluador: formData.documento_evaluador,
@@ -164,29 +170,30 @@ function EvaluationPage() {
               <input type="email" name="correo_evaluador" required value={formData.correo_evaluador} onChange={handleGeneralChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none" />
             </div>
             
-            {/* Buscador inteligente */}
+            {/* Nuevo Buscador por Código */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">4. Título del poster</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">4. Código del poster</label>
               <input 
                 type="text" 
-                list="lista-ponencias"
-                name="titulo_poster" 
+                name="codigo_poster" 
                 required 
-                value={formData.titulo_poster} 
-                onChange={handleTituloChange} 
-                placeholder="Escriba para buscar el título..."
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none" 
+                value={formData.codigo_poster} 
+                onChange={handleCodigoChange} 
+                placeholder="Escriba el código numérico de la ponencia" 
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none font-mono font-bold text-blue-900" 
               />
-              <datalist id="lista-ponencias">
-                {ponencias.map(p => (
-                  <option key={p.codigo} value={p.titulo} />
-                ))}
-              </datalist>
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">5. Código del poster</label>
-              <input type="text" name="codigo_poster" required value={formData.codigo_poster} onChange={handleGeneralChange} placeholder="Se llena automáticamente si selecciona el título correcto" className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-blue-900 outline-none font-mono font-bold text-blue-900" />
+              <label className="block text-sm font-semibold text-gray-700 mb-2">5. Título del poster</label>
+              <input 
+                type="text" 
+                name="titulo_poster" 
+                readOnly 
+                value={formData.titulo_poster} 
+                placeholder="El título aparecerá automáticamente al ingresar un código válido"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100 text-gray-600 outline-none cursor-not-allowed" 
+              />
             </div>
           </div>
         </div>

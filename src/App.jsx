@@ -1,10 +1,24 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import RegistrationPage from './pages/RegistrationPage';
 import AdminPanel from './pages/AdminPanel';
 import EvaluatorRegistration from './pages/EvaluatorRegistration';
 import EvaluationPage from './pages/EvaluationPage';
-import ScannerPage from './pages/ScannerPage'; // Importamos el escáner
+import ScannerPage from './pages/ScannerPage';
+import LoginPage from './pages/LoginPage';
+import AdminLoginPage from './pages/AdminLoginPage'; // Importación de la nueva página de login admin
+
+// Componente para proteger las rutas de evaluadores/estudiantes
+const PrivateRoute = ({ children }) => {
+  const isAuth = localStorage.getItem('usuario_logueado');
+  return isAuth ? children : <Navigate to="/login" />;
+};
+
+// Componente exclusivo para proteger el panel de administración
+const AdminRoute = ({ children }) => {
+  const isAdmin = localStorage.getItem('admin_logueado');
+  return isAdmin ? children : <Navigate to="/admin-login" />;
+};
 
 function App() {
   return (
@@ -47,12 +61,18 @@ function App() {
                 </div>
               </div>
             } />
+            
+            {/* Rutas Públicas */}
             <Route path="/registro" element={<RegistrationPage />} />
-            <Route path="/admin" element={<AdminPanel />} />
             <Route path="/registro-evaluador" element={<EvaluatorRegistration />} />
-            <Route path="/evaluar" element={<EvaluationPage />} />
-            <Route path="/evaluar/:codigoQR" element={<EvaluationPage />} />
-            <Route path="/escanear" element={<ScannerPage />} /> {/* Ruta del escáner habilitada */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/admin-login" element={<AdminLoginPage />} /> {/* Nueva ruta pública de Login Admin */}
+
+            {/* Rutas Protegidas */}
+            <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
+            <Route path="/evaluar" element={<PrivateRoute><EvaluationPage /></PrivateRoute>} />
+            <Route path="/evaluar/:codigoQR" element={<PrivateRoute><EvaluationPage /></PrivateRoute>} />
+            <Route path="/escanear" element={<PrivateRoute><ScannerPage /></PrivateRoute>} />
           </Routes>
         </main>
 
