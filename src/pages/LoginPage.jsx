@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 const API_URL = "https://acofi-backend.onrender.com";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({ documento: '', pin: '' });
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
@@ -25,10 +26,15 @@ function LoginPage() {
       localStorage.setItem('usuario_logueado', 'true');
       localStorage.setItem('usuario_nombre', respuesta.data.nombre);
       localStorage.setItem('usuario_tipo', respuesta.data.tipo_usuario);
-      localStorage.setItem('usuario_id', respuesta.data.id); // Guardamos el ID para el perfil
+      localStorage.setItem('usuario_id', respuesta.data.id);
+      localStorage.setItem('usuario_documento', formData.documento);
       
-      // LÓGICA INTUITIVA DE REDIRECCIÓN POR PERFIL
-      if (respuesta.data.tipo_usuario === 'estudiante') {
+      const params = new URLSearchParams(location.search);
+      const redirect = params.get('redirect');
+
+      if (redirect) {
+        navigate(redirect);
+      } else if (respuesta.data.tipo_usuario === 'estudiante') {
         navigate('/mi-ponencia');
       } else {
         navigate('/escanear');

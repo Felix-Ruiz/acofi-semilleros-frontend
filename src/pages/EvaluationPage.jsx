@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 
 // URL base de producción
 const API_URL = "https://acofi-backend.onrender.com";
@@ -8,12 +8,13 @@ const API_URL = "https://acofi-backend.onrender.com";
 function EvaluationPage() {
   const { codigoQR } = useParams(); // Captura el código si vienen desde el QR
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [ponencias, setPonencias] = useState([]);
   const [formData, setFormData] = useState({
-    nombres_evaluador: '',
-    documento_evaluador: '',
-    correo_evaluador: '',
+    nombres_evaluador: localStorage.getItem('usuario_nombre') || '',
+    documento_evaluador: localStorage.getItem('usuario_documento') || '',
+    correo_evaluador: '', 
     titulo_poster: '',
     codigo_poster: codigoQR || '',
     respuestas: {
@@ -29,8 +30,14 @@ function EvaluationPage() {
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
 
-  // Cargar lista de ponencias aprobadas
+  // Cargar lista de ponencias aprobadas y verificar sesión
   useEffect(() => {
+    // 1. Verificación de sesión: Si no hay usuario, redirigir al login guardando la ruta actual
+    if (!localStorage.getItem('usuario_logueado')) {
+      navigate(`/login?redirect=${location.pathname}`);
+      return;
+    }
+
     const cargarPonencias = async () => {
       try {
         const respuesta = await axios.get(`${API_URL}/api/admin/ponencias`);
@@ -49,7 +56,7 @@ function EvaluationPage() {
       }
     };
     cargarPonencias();
-  }, [codigoQR]);
+  }, [codigoQR, navigate, location]);
 
   // NUEVA LÓGICA: Manejador para cuando el evaluador escribe el CÓDIGO
   const handleCodigoChange = (e) => {
@@ -103,7 +110,7 @@ function EvaluationPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
-      setTimeout(() => navigate('/'), 3000);
+      setTimeout(() => navigate('/escanear'), 3000);
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al enviar evaluación.' });
     } finally {
@@ -159,11 +166,11 @@ function EvaluationPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">1. Nombre y apellidos del evaluador</label>
-              <input type="text" name="nombres_evaluador" required value={formData.nombres_evaluador} onChange={handleGeneralChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none" />
+              <input type="text" name="nombres_evaluador" readOnly value={formData.nombres_evaluador} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100 cursor-not-allowed outline-none" />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">2. Número de documento de identidad</label>
-              <input type="text" name="documento_evaluador" required value={formData.documento_evaluador} onChange={handleGeneralChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none" />
+              <input type="text" name="documento_evaluador" readOnly value={formData.documento_evaluador} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100 cursor-not-allowed outline-none" />
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">3. Correo electrónico del evaluador</label>
@@ -209,17 +216,6 @@ function EvaluationPage() {
               <li><strong className="text-blue-900">(40 puntos)</strong> Propuesta sólida y bien estructurada pero puede mejorar.</li>
               <li><strong className="text-blue-900">(50 puntos)</strong> Excelente base para continuar el proceso investigativo.</li>
             </ul>
-          </div>
-
-          {/* Encabezado de puntos (solo visible en escritorio) */}
-          <div className="hidden md:flex justify-end px-10 mb-2">
-            <div className="w-1/2 flex justify-between text-sm font-semibold text-gray-400">
-              <span>10 puntos</span>
-              <span>20 puntos</span>
-              <span>30 puntos</span>
-              <span>40 puntos</span>
-              <span>50 puntos</span>
-            </div>
           </div>
 
           <FilaRubrica num="6" titulo="Título" descripcion="Es claro, preciso y refleja el tema y enfoque investigativo." stateKey="q6" />
