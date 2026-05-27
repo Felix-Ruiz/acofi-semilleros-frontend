@@ -29,12 +29,23 @@ function EvaluationPage() {
 
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
-  const [cargandoDatos, setCargandoDatos] = useState(true); // Estado visual para que no se congele la página
+  const [cargandoDatos, setCargandoDatos] = useState(true);
+
+  // Asegurar que si el estado de React se recarga, los datos sigan ahí
+  useEffect(() => {
+    const nombre = localStorage.getItem('usuario_nombre');
+    const doc = localStorage.getItem('usuario_documento');
+    const correo = localStorage.getItem('usuario_correo'); 
+    if (nombre && doc) {
+      setFormData(prev => ({ ...prev, nombres_evaluador: nombre, documento_evaluador: doc, correo_evaluador: correo }));
+    }
+  }, []);
 
   // Cargar lista de ponencias aprobadas
   useEffect(() => {
-    // Si escaneó el QR sin estar logueado, lo mandamos al login guardando la URL actual
+    // Si escaneó el QR sin estar logueado, lo mandamos al login guardando la URL en la memoria blindada
     if (!localStorage.getItem('usuario_logueado')) {
+      localStorage.setItem('redirect_after_login', location.pathname);
       navigate(`/login?redirect=${location.pathname}`);
       return;
     }
@@ -45,7 +56,6 @@ function EvaluationPage() {
         const aprobadas = respuesta.data.filter(p => p.estado === 'aceptada');
         setPonencias(aprobadas);
 
-        // Si vinieron desde un código QR, intentamos autocompletar el título
         if (codigoQR) {
           const ponenciaEncontrada = aprobadas.find(p => p.codigo === codigoQR);
           if (ponenciaEncontrada) {
@@ -55,18 +65,16 @@ function EvaluationPage() {
       } catch (error) {
         console.error("Error al cargar ponencias", error);
       } finally {
-        setCargandoDatos(false); // Libera la interfaz para que el usuario no vea la página trabada
+        setCargandoDatos(false); 
       }
     };
     cargarPonencias();
   }, [codigoQR, navigate, location]);
 
-  // NUEVA LÓGICA: Manejador para cuando el evaluador escribe el CÓDIGO
   const handleCodigoChange = (e) => {
     const codigoIngresado = e.target.value;
     let tituloEncontrado = '';
 
-    // Si el código coincide con una ponencia, autocompletamos el título
     const ponenciaEncontrada = ponencias.find(p => p.codigo === codigoIngresado);
     if (ponenciaEncontrada) {
       tituloEncontrado = ponenciaEncontrada.titulo;
@@ -121,7 +129,6 @@ function EvaluationPage() {
     }
   };
 
-  // Componente interno para renderizar cada fila de la rúbrica manteniendo el diseño
   const FilaRubrica = ({ num, titulo, descripcion, stateKey }) => (
     <div className="flex flex-col md:flex-row items-center border-b border-gray-100 py-6 hover:bg-gray-50 transition-colors rounded-lg px-2">
       <div className="w-full md:w-1/2 mb-4 md:mb-0 pr-4">
@@ -183,7 +190,6 @@ function EvaluationPage() {
               <input type="email" name="correo_evaluador" required value={formData.correo_evaluador} onChange={handleGeneralChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none" />
             </div>
             
-            {/* Nuevo Buscador por Código */}
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">4. Código del poster</label>
               <input 
@@ -225,7 +231,6 @@ function EvaluationPage() {
             </ul>
           </div>
 
-          {/* Encabezado de puntos (solo visible en escritorio) */}
           <div className="hidden md:flex justify-end px-10 mb-2">
             <div className="w-1/2 flex justify-between text-sm font-semibold text-gray-400">
               <span>10 puntos</span>

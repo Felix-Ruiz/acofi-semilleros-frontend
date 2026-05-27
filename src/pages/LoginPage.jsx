@@ -23,18 +23,21 @@ function LoginPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/login`, formData);
       
+      // Guardamos la sesión y los datos para autocompletar
       localStorage.setItem('usuario_logueado', 'true');
       localStorage.setItem('usuario_nombre', respuesta.data.nombre);
       localStorage.setItem('usuario_tipo', respuesta.data.tipo_usuario);
-      localStorage.setItem('usuario_id', respuesta.data.id); // Guardamos el ID para el perfil
+      localStorage.setItem('usuario_id', respuesta.data.id); 
       localStorage.setItem('usuario_documento', formData.documento); 
-      localStorage.setItem('usuario_correo', respuesta.data.correo || ''); // Guardamos el correo para autocompletar
+      localStorage.setItem('usuario_correo', respuesta.data.correo || ''); 
       
-      // LÓGICA INTUITIVA DE REDIRECCIÓN POR PERFIL O CÓDIGO QR
+      // LÓGICA DE REDIRECCIÓN BLINDADA (Prioriza el QR escaneado)
       const params = new URLSearchParams(location.search);
-      const redirectUrl = params.get('redirect');
+      // Busca la URL de redirección en los parámetros o en la memoria segura
+      const redirectUrl = params.get('redirect') || localStorage.getItem('redirect_after_login');
 
       if (redirectUrl) {
+        localStorage.removeItem('redirect_after_login'); // Limpiamos la memoria segura
         navigate(redirectUrl);
       } else if (respuesta.data.tipo_usuario === 'estudiante') {
         navigate('/mi-ponencia');
