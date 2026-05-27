@@ -23,19 +23,18 @@ function LoginPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/login`, formData);
       
-      // Guardamos la sesión
+      // Guardamos la sesión y los datos para autocompletar
       localStorage.setItem('usuario_logueado', 'true');
       localStorage.setItem('usuario_nombre', respuesta.data.nombre);
       localStorage.setItem('usuario_tipo', respuesta.data.tipo_usuario);
       localStorage.setItem('usuario_id', respuesta.data.id); 
-      localStorage.setItem('usuario_documento', formData.documento); // Guardamos para la evaluación
+      localStorage.setItem('usuario_documento', formData.documento); 
+      localStorage.setItem('usuario_correo', respuesta.data.correo || ''); // <-- CORRECCIÓN: Guardamos el correo
       
-      // LÓGICA INTUITIVA DE REDIRECCIÓN POR PERFIL O POR QR
       const params = new URLSearchParams(location.search);
       const redirectUrl = params.get('redirect');
 
       if (redirectUrl) {
-        // PUNTO 2 SOLUCIONADO: Lo devolvemos exactamente a la URL del QR que escaneó
         navigate(redirectUrl);
       } else if (respuesta.data.tipo_usuario === 'estudiante') {
         navigate('/mi-ponencia');
