@@ -31,18 +31,21 @@ function LoginPage() {
       localStorage.setItem('usuario_documento', formData.documento); 
       localStorage.setItem('usuario_correo', respuesta.data.correo || ''); 
       
-      // LÓGICA DE REDIRECCIÓN BLINDADA (Prioriza el QR escaneado)
+      // ⚠️ LÓGICA DE REDIRECCIÓN BLINDADA (Prioriza el QR escaneado)
       const params = new URLSearchParams(location.search);
-      // Busca la URL de redirección en los parámetros o en la memoria segura
-      const redirectUrl = params.get('redirect') || localStorage.getItem('redirect_after_login');
+      const urlDesdeParametro = params.get('redirect');
+      const urlDesdeMemoria = localStorage.getItem('redirect_after_login');
+      
+      // Validamos si hay una ruta pendiente de evaluación
+      const rutaDestino = urlDesdeParametro || urlDesdeMemoria;
 
-      if (redirectUrl) {
-        localStorage.removeItem('redirect_after_login'); // Limpiamos la memoria segura
-        navigate(redirectUrl);
+      if (rutaDestino && rutaDestino.includes('/evaluar')) {
+        localStorage.removeItem('redirect_after_login'); // Limpiamos la memoria
+        navigate(rutaDestino); // Lo enviamos directo a la ponencia que escaneó
       } else if (respuesta.data.tipo_usuario === 'estudiante') {
         navigate('/mi-ponencia');
       } else {
-        navigate('/escanear');
+        navigate('/escanear'); // Solo llega aquí si ingresó directo a la web
       }
     } catch (error) {
       setMensaje({ 

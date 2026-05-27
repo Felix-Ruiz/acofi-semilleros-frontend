@@ -14,7 +14,7 @@ function EvaluationPage() {
   const [formData, setFormData] = useState({
     nombres_evaluador: localStorage.getItem('usuario_nombre') || '',
     documento_evaluador: localStorage.getItem('usuario_documento') || '',
-    correo_evaluador: localStorage.getItem('usuario_correo') || '', // Se autocompleta pero queda editable
+    correo_evaluador: localStorage.getItem('usuario_correo') || '', 
     titulo_poster: '',
     codigo_poster: codigoQR || '',
     respuestas: {
@@ -43,10 +43,10 @@ function EvaluationPage() {
 
   // Cargar lista de ponencias aprobadas
   useEffect(() => {
-    // Si escaneó el QR sin estar logueado, lo mandamos al login guardando la URL en la memoria blindada
+    // ⚠️ SI EL EVALUADOR NO TIENE SESIÓN, GUARDAMOS LA URL EXACTA DEL QR ANTES DE REDIRIGIRLO
     if (!localStorage.getItem('usuario_logueado')) {
       localStorage.setItem('redirect_after_login', location.pathname);
-      navigate(`/login?redirect=${location.pathname}`);
+      navigate(`/login`);
       return;
     }
 
@@ -121,7 +121,7 @@ function EvaluationPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
-      setTimeout(() => navigate('/'), 3000);
+      setTimeout(() => navigate('/escanear'), 3000);
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al enviar evaluación.' });
     } finally {
