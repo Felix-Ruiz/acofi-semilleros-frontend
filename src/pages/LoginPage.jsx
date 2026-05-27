@@ -23,14 +23,14 @@ function LoginPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/login`, formData);
       
-      // Guardamos la sesión y los datos para autocompletar
       localStorage.setItem('usuario_logueado', 'true');
       localStorage.setItem('usuario_nombre', respuesta.data.nombre);
       localStorage.setItem('usuario_tipo', respuesta.data.tipo_usuario);
-      localStorage.setItem('usuario_id', respuesta.data.id); 
+      localStorage.setItem('usuario_id', respuesta.data.id); // Guardamos el ID para el perfil
       localStorage.setItem('usuario_documento', formData.documento); 
-      localStorage.setItem('usuario_correo', respuesta.data.correo || ''); // <-- CORRECCIÓN: Guardamos el correo
+      localStorage.setItem('usuario_correo', respuesta.data.correo || ''); // Guardamos el correo para autocompletar
       
+      // LÓGICA INTUITIVA DE REDIRECCIÓN POR PERFIL O CÓDIGO QR
       const params = new URLSearchParams(location.search);
       const redirectUrl = params.get('redirect');
 

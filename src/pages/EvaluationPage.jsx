@@ -14,7 +14,7 @@ function EvaluationPage() {
   const [formData, setFormData] = useState({
     nombres_evaluador: localStorage.getItem('usuario_nombre') || '',
     documento_evaluador: localStorage.getItem('usuario_documento') || '',
-    correo_evaluador: localStorage.getItem('usuario_correo') || '', // <-- CORRECCIÓN: Autocompletamos el correo
+    correo_evaluador: localStorage.getItem('usuario_correo') || '', // Se autocompleta pero queda editable
     titulo_poster: '',
     codigo_poster: codigoQR || '',
     respuestas: {
@@ -29,20 +29,11 @@ function EvaluationPage() {
 
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
+  const [cargandoDatos, setCargandoDatos] = useState(true); // Estado visual para que no se congele la página
 
-  // Asegurar que si el estado de React se recarga, los datos sigan ahí
+  // Cargar lista de ponencias aprobadas
   useEffect(() => {
-    const nombre = localStorage.getItem('usuario_nombre');
-    const doc = localStorage.getItem('usuario_documento');
-    const correo = localStorage.getItem('usuario_correo'); // <-- Aseguramos recarga de correo
-    if (nombre && doc) {
-      setFormData(prev => ({ ...prev, nombres_evaluador: nombre, documento_evaluador: doc, correo_evaluador: correo }));
-    }
-  }, []);
-
-  // Cargar lista de ponencias aprobadas y proteger ruta
-  useEffect(() => {
-    // Si escaneó el QR sin estar logueado, lo mandamos al login guardando esta URL
+    // Si escaneó el QR sin estar logueado, lo mandamos al login guardando la URL actual
     if (!localStorage.getItem('usuario_logueado')) {
       navigate(`/login?redirect=${location.pathname}`);
       return;
@@ -63,15 +54,19 @@ function EvaluationPage() {
         }
       } catch (error) {
         console.error("Error al cargar ponencias", error);
+      } finally {
+        setCargandoDatos(false); // Libera la interfaz para que el usuario no vea la página trabada
       }
     };
     cargarPonencias();
   }, [codigoQR, navigate, location]);
 
+  // NUEVA LÓGICA: Manejador para cuando el evaluador escribe el CÓDIGO
   const handleCodigoChange = (e) => {
     const codigoIngresado = e.target.value;
     let tituloEncontrado = '';
 
+    // Si el código coincide con una ponencia, autocompletamos el título
     const ponenciaEncontrada = ponencias.find(p => p.codigo === codigoIngresado);
     if (ponenciaEncontrada) {
       tituloEncontrado = ponenciaEncontrada.titulo;
@@ -118,7 +113,7 @@ function EvaluationPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
-      setTimeout(() => navigate('/escanear'), 3000);
+      setTimeout(() => navigate('/'), 3000);
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al enviar evaluación.' });
     } finally {
@@ -126,6 +121,7 @@ function EvaluationPage() {
     }
   };
 
+  // Componente interno para renderizar cada fila de la rúbrica manteniendo el diseño
   const FilaRubrica = ({ num, titulo, descripcion, stateKey }) => (
     <div className="flex flex-col md:flex-row items-center border-b border-gray-100 py-6 hover:bg-gray-50 transition-colors rounded-lg px-2">
       <div className="w-full md:w-1/2 mb-4 md:mb-0 pr-4">
@@ -169,7 +165,10 @@ function EvaluationPage() {
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* SECCIÓN 1: DATOS DEL EVALUADOR Y PONENCIA */}
         <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-6">
-          <h3 className="text-xl font-bold text-gray-800 border-b pb-2">Datos de Identificación</h3>
+          <h3 className="text-xl font-bold text-gray-800 border-b pb-2 flex justify-between items-center">
+            Datos de Identificación
+            {cargandoDatos && <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded animate-pulse">Sincronizando servidor...</span>}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">1. Nombre y apellidos del evaluador</label>
@@ -179,13 +178,12 @@ function EvaluationPage() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">2. Número de documento de identidad</label>
               <input type="text" name="documento_evaluador" readOnly value={formData.documento_evaluador} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-200 text-gray-700 outline-none cursor-not-allowed font-mono font-medium" />
             </div>
-            
-            {/* CORRECCIÓN: Casilla de correo restaurada y bloqueada para autocompletado */}
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">3. Correo electrónico del evaluador</label>
-              <input type="email" name="correo_evaluador" readOnly value={formData.correo_evaluador} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-200 text-gray-700 outline-none cursor-not-allowed font-medium" />
+              <input type="email" name="correo_evaluador" required value={formData.correo_evaluador} onChange={handleGeneralChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none" />
             </div>
             
+            {/* Nuevo Buscador por Código */}
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">4. Código del poster</label>
               <input 
@@ -194,8 +192,9 @@ function EvaluationPage() {
                 required 
                 value={formData.codigo_poster} 
                 onChange={handleCodigoChange} 
-                placeholder="Escriba el código numérico de la ponencia" 
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none font-mono font-bold text-blue-900" 
+                placeholder={cargandoDatos ? "Conectando al servidor..." : "Escriba el código numérico de la ponencia"} 
+                disabled={cargandoDatos}
+                className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:ring-blue-900 outline-none font-mono font-bold text-blue-900 ${cargandoDatos ? 'bg-gray-100 border-gray-200 cursor-wait' : 'border-gray-300'}`} 
               />
             </div>
 
@@ -226,6 +225,7 @@ function EvaluationPage() {
             </ul>
           </div>
 
+          {/* Encabezado de puntos (solo visible en escritorio) */}
           <div className="hidden md:flex justify-end px-10 mb-2">
             <div className="w-1/2 flex justify-between text-sm font-semibold text-gray-400">
               <span>10 puntos</span>
@@ -249,7 +249,7 @@ function EvaluationPage() {
           <textarea name="comentarios" rows="4" value={formData.comentarios} onChange={handleGeneralChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none resize-none" placeholder="Escriba sus observaciones aquí..."></textarea>
         </div>
 
-        <button type="submit" disabled={cargando} className="w-full py-4 bg-blue-900 text-white rounded-xl hover:bg-blue-800 font-bold text-lg shadow-lg transition-colors disabled:opacity-50 mt-4">
+        <button type="submit" disabled={cargando || cargandoDatos} className="w-full py-4 bg-blue-900 text-white rounded-xl hover:bg-blue-800 font-bold text-lg shadow-lg transition-colors disabled:opacity-50 mt-4">
           {cargando ? 'Guardando...' : 'Enviar Evaluación'}
         </button>
 
