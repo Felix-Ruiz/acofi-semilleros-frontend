@@ -12,9 +12,10 @@ function EvaluationPage() {
   
   const [ponencias, setPonencias] = useState([]);
   const [formData, setFormData] = useState({
+    // PUNTO 1 SOLUCIONADO: Tomamos los datos de la sesión para no pedirlos de nuevo
     nombres_evaluador: localStorage.getItem('usuario_nombre') || '',
     documento_evaluador: localStorage.getItem('usuario_documento') || '',
-    correo_evaluador: '', 
+    correo_evaluador: '',
     titulo_poster: '',
     codigo_poster: codigoQR || '',
     respuestas: {
@@ -30,9 +31,18 @@ function EvaluationPage() {
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
 
-  // Cargar lista de ponencias aprobadas y verificar sesión
+  // Asegurar que si el estado de React se recarga, los datos sigan ahí
   useEffect(() => {
-    // 1. Verificación de sesión: Si no hay usuario, redirigir al login guardando la ruta actual
+    const nombre = localStorage.getItem('usuario_nombre');
+    const doc = localStorage.getItem('usuario_documento');
+    if (nombre && doc) {
+      setFormData(prev => ({ ...prev, nombres_evaluador: nombre, documento_evaluador: doc }));
+    }
+  }, []);
+
+  // Cargar lista de ponencias aprobadas y proteger ruta
+  useEffect(() => {
+    // Si escaneó el QR sin estar logueado, lo mandamos al login guardando esta URL
     if (!localStorage.getItem('usuario_logueado')) {
       navigate(`/login?redirect=${location.pathname}`);
       return;
@@ -58,12 +68,10 @@ function EvaluationPage() {
     cargarPonencias();
   }, [codigoQR, navigate, location]);
 
-  // NUEVA LÓGICA: Manejador para cuando el evaluador escribe el CÓDIGO
   const handleCodigoChange = (e) => {
     const codigoIngresado = e.target.value;
     let tituloEncontrado = '';
 
-    // Si el código coincide con una ponencia, autocompletamos el título
     const ponenciaEncontrada = ponencias.find(p => p.codigo === codigoIngresado);
     if (ponenciaEncontrada) {
       tituloEncontrado = ponenciaEncontrada.titulo;
@@ -118,7 +126,6 @@ function EvaluationPage() {
     }
   };
 
-  // Componente interno para renderizar cada fila de la rúbrica manteniendo el diseño
   const FilaRubrica = ({ num, titulo, descripcion, stateKey }) => (
     <div className="flex flex-col md:flex-row items-center border-b border-gray-100 py-6 hover:bg-gray-50 transition-colors rounded-lg px-2">
       <div className="w-full md:w-1/2 mb-4 md:mb-0 pr-4">
@@ -166,20 +173,16 @@ function EvaluationPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">1. Nombre y apellidos del evaluador</label>
-              <input type="text" name="nombres_evaluador" readOnly value={formData.nombres_evaluador} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100 cursor-not-allowed outline-none" />
+              {/* PUNTO 1 SOLUCIONADO: Campo inyectado y bloqueado (readOnly) para que no editen */}
+              <input type="text" name="nombres_evaluador" readOnly value={formData.nombres_evaluador} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-200 text-gray-700 outline-none cursor-not-allowed font-medium" />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">2. Número de documento de identidad</label>
-              <input type="text" name="documento_evaluador" readOnly value={formData.documento_evaluador} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100 cursor-not-allowed outline-none" />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">3. Correo electrónico del evaluador</label>
-              <input type="email" name="correo_evaluador" required value={formData.correo_evaluador} onChange={handleGeneralChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none" />
+              <input type="text" name="documento_evaluador" readOnly value={formData.documento_evaluador} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-200 text-gray-700 outline-none cursor-not-allowed font-mono font-medium" />
             </div>
             
-            {/* Nuevo Buscador por Código */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">4. Código del poster</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">3. Código del poster</label>
               <input 
                 type="text" 
                 name="codigo_poster" 
@@ -192,7 +195,7 @@ function EvaluationPage() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">5. Título del poster</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">4. Título del poster</label>
               <input 
                 type="text" 
                 name="titulo_poster" 
@@ -218,16 +221,26 @@ function EvaluationPage() {
             </ul>
           </div>
 
-          <FilaRubrica num="6" titulo="Título" descripcion="Es claro, preciso y refleja el tema y enfoque investigativo." stateKey="q6" />
-          <FilaRubrica num="7" titulo="Estructura" descripcion="Se muestra claramente el problema, justificación, antecedentes y objetivos" stateKey="q7" />
-          <FilaRubrica num="8" titulo="Resultados esperados / Hipótesis" descripcion="Plantea de manera lógica los resultados esperados y las hipótesis." stateKey="q8" />
-          <FilaRubrica num="9" titulo="Metodología" descripcion="Describe con claridad el enfoque metodológico y su coherencia." stateKey="q9" />
-          <FilaRubrica num="10" titulo="Conclusiones" descripcion="Coherentes con los objetivos y resultados esperados y se proponen ideas de avance." stateKey="q10" />
+          <div className="hidden md:flex justify-end px-10 mb-2">
+            <div className="w-1/2 flex justify-between text-sm font-semibold text-gray-400">
+              <span>10 puntos</span>
+              <span>20 puntos</span>
+              <span>30 puntos</span>
+              <span>40 puntos</span>
+              <span>50 puntos</span>
+            </div>
+          </div>
+
+          <FilaRubrica num="5" titulo="Título" descripcion="Es claro, preciso y refleja el tema y enfoque investigativo." stateKey="q6" />
+          <FilaRubrica num="6" titulo="Estructura" descripcion="Se muestra claramente el problema, justificación, antecedentes y objetivos" stateKey="q7" />
+          <FilaRubrica num="7" titulo="Resultados esperados / Hipótesis" descripcion="Plantea de manera lógica los resultados esperados y las hipótesis." stateKey="q8" />
+          <FilaRubrica num="8" titulo="Metodología" descripcion="Describe con claridad el enfoque metodológico y su coherencia." stateKey="q9" />
+          <FilaRubrica num="9" titulo="Conclusiones" descripcion="Coherentes con los objetivos y resultados esperados y se proponen ideas de avance." stateKey="q10" />
         </div>
 
         {/* SECCIÓN 3: COMENTARIOS */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">11. Tiene algún comentario sobre la/el/los estudiantes, la exposición o el poster:</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">10. Tiene algún comentario sobre la/el/los estudiantes, la exposición o el poster:</label>
           <textarea name="comentarios" rows="4" value={formData.comentarios} onChange={handleGeneralChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none resize-none" placeholder="Escriba sus observaciones aquí..."></textarea>
         </div>
 
