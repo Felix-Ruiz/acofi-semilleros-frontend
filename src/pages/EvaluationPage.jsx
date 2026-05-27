@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
-// URL base de producción
 const API_URL = "https://acofi-backend.onrender.com";
 
 function EvaluationPage() {
   const { codigoQR } = useParams(); 
   const navigate = useNavigate();
-  const location = useLocation();
   
   const [ponencias, setPonencias] = useState([]);
   const [formData, setFormData] = useState({
@@ -37,11 +35,12 @@ function EvaluationPage() {
   }, []);
 
   useEffect(() => {
-    // ⚠️ GUARDAMOS LA LLAVE EXACTA ANTES DE IR A LOGIN
+    // ⚠️ SI NO ESTÁ LOGUEADO: ATRAPAMOS EL CÓDIGO Y FORZAMOS EL LOGIN FÍSICO
     if (!localStorage.getItem('usuario_logueado')) {
-      const rutaDestino = codigoQR ? `/evaluar/${codigoQR}` : window.location.pathname;
-      localStorage.setItem('url_post_login', rutaDestino);
-      navigate(`/login`);
+      if (codigoQR) {
+        localStorage.setItem('qr_pending_route', `/evaluar/${codigoQR}`);
+      }
+      window.location.href = '/login';
       return;
     }
 
@@ -64,7 +63,7 @@ function EvaluationPage() {
       }
     };
     cargarPonencias();
-  }, [codigoQR, navigate, location]);
+  }, [codigoQR]);
 
   const handleCodigoChange = (e) => {
     const codigoIngresado = e.target.value;
@@ -99,7 +98,7 @@ function EvaluationPage() {
     setMensaje({ tipo: '', texto: '' });
 
     if (!formData.titulo_poster) {
-      setMensaje({ tipo: 'error', texto: 'Código de póster inválido. No se encontró ninguna ponencia con ese código.' });
+      setMensaje({ tipo: 'error', texto: 'Código de póster inválido. No se encontró ninguna ponencia.' });
       setCargando(false);
       return;
     }
@@ -116,7 +115,7 @@ function EvaluationPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
-      setTimeout(() => navigate('/escanear'), 3000);
+      setTimeout(() => navigate('/'), 3000);
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al enviar evaluación.' });
     } finally {

@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 const API_URL = "https://acofi-backend.onrender.com";
 
 function LoginPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [formData, setFormData] = useState({ documento: '', pin: '' });
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
@@ -23,6 +20,7 @@ function LoginPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/login`, formData);
       
+      // Guardamos la sesión y los datos para autocompletar
       localStorage.setItem('usuario_logueado', 'true');
       localStorage.setItem('usuario_nombre', respuesta.data.nombre);
       localStorage.setItem('usuario_tipo', respuesta.data.tipo_usuario);
@@ -30,16 +28,18 @@ function LoginPage() {
       localStorage.setItem('usuario_documento', formData.documento); 
       localStorage.setItem('usuario_correo', respuesta.data.correo || ''); 
       
-      // ⚠️ CORRECCIÓN DEFINITIVA: Buscamos la llave exacta
-      const qrPendiente = localStorage.getItem('url_post_login');
+      // ⚠️ LÓGICA DE FUERZA BRUTA PARA REDIRECCIÓN (INFALIBLE)
+      const qrPendiente = localStorage.getItem('qr_pending_route');
 
       if (qrPendiente) {
-        localStorage.removeItem('url_post_login'); // Limpiamos el ticket
-        navigate(qrPendiente); // Lo mandamos exacto a la evaluación
+        localStorage.removeItem('qr_pending_route');
+        window.location.href = qrPendiente; // Fuerza al navegador a ir al QR exacto
+      } else if (respuesta.data.tipo_usuario === 'admin') {
+        window.location.href = '/admin'; // Acceso exclusivo Admin
       } else if (respuesta.data.tipo_usuario === 'estudiante') {
-        navigate('/mi-ponencia');
+        window.location.href = '/mi-ponencia';
       } else {
-        navigate('/escanear'); 
+        window.location.href = '/'; 
       }
     } catch (error) {
       setMensaje({ 

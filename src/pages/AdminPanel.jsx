@@ -34,6 +34,18 @@ function AdminPanel() {
   const ciudadesColombia = ['Arauca', 'Armenia', 'Barranquilla', 'Bogotá D.C.', 'Bucaramanga', 'Cali', 'Cartagena de Indias', 'Cúcuta', 'Florencia', 'Ibagué', 'Inírida', 'Leticia', 'Manizales', 'Medellín', 'Mitú', 'Mocoa', 'Montería', 'Neiva', 'Pasto', 'Pereira', 'Popayán', 'Puerto Carreño', 'Quibdó', 'Riohacha', 'San Andrés', 'San José del Guaviare', 'Santa Marta', 'Sincelejo', 'Tunja', 'Valledupar', 'Villavicencio', 'Yopal'];
   const eventosDisponibles = [{ id: 1, nombre: "Barranquilla, Atlántico" }, { id: 2, nombre: "Bogotá, Distrito Capital" }, { id: 3, nombre: "Pereira, Risaralda" }];
 
+  // ⚠️ SEGURIDAD CRÍTICA: Guardián de Ruta para expulsar intrusos
+  useEffect(() => {
+    const tipoUsuario = localStorage.getItem('usuario_tipo');
+    if (tipoUsuario !== 'admin') {
+      window.location.href = '/login'; // Expulsa inmediatamente
+      return;
+    }
+    
+    if (vistaActual !== 'qr') cargarDatos();
+    else setCargando(false);
+  }, [vistaActual]);
+
   const cargarDatos = async () => {
     try {
       setCargando(true);
@@ -58,11 +70,6 @@ function AdminPanel() {
       setCargando(false);
     }
   };
-
-  useEffect(() => {
-    if (vistaActual !== 'qr') cargarDatos();
-    else setCargando(false);
-  }, [vistaActual]);
 
   const toggleInscripciones = async () => {
     try {
@@ -108,15 +115,12 @@ function AdminPanel() {
     }
   };
 
-  // --- LÓGICA DE ASISTENCIA ---
   const toggleAsistencia = async (id, estadoActual) => {
     const nuevoEstado = !estadoActual;
-    // Actualización optimista de la UI
     setEstudiantes(estudiantes.map(e => e.id === id ? { ...e, asistencia: nuevoEstado } : e));
     try {
       await axios.put(`${API_URL}/api/admin/estudiantes/${id}/asistencia`, { asistencia: nuevoEstado });
     } catch (error) {
-      // Revertir si falla
       setEstudiantes(estudiantes.map(e => e.id === id ? { ...e, asistencia: estadoActual } : e));
       setMensaje({ tipo: 'error', texto: 'Error al guardar la asistencia en la base de datos.' });
     }
@@ -230,7 +234,7 @@ function AdminPanel() {
     formData.append('file', file);
     
     setProcesandoAccion(true);
-    setMensaje({ tipo: '', texto: 'Procesando archivo, validando códigos... Por favor espere.' });
+    setMensaje({ tipo: '', texto: 'Procesando archivo fila por fila... Por favor espere, esto puede tardar un minuto.' });
     try {
       await axios.post(`${API_URL}/api/admin/cargar_excel`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -294,7 +298,6 @@ function AdminPanel() {
     e.nombre_trabajo.toLowerCase().includes(filtroEstudiantes.toLowerCase())
   );
 
-  // Cálculos para la vista de Asistencia
   const totalAsistentes = estudiantes.filter(e => e.asistencia).length;
   const porcentajeAsistencia = estudiantes.length > 0 ? Math.round((totalAsistentes / estudiantes.length) * 100) : 0;
 
@@ -336,7 +339,6 @@ function AdminPanel() {
         <div className="flex flex-wrap gap-2 justify-center w-full lg:w-auto">
           <button onClick={() => setVistaActual('ponencias')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'ponencias' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Ponencias / Grupos</button>
           <button onClick={() => setVistaActual('estudiantes')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'estudiantes' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Estudiantes</button>
-          {/* NUEVO BOTÓN: Control de Asistencia */}
           <button onClick={() => setVistaActual('asistencia')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'asistencia' ? 'bg-teal-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>✅ Check-in</button>
           <button onClick={() => setVistaActual('evaluadores')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'evaluadores' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Evaluadores</button>
           <button onClick={() => setVistaActual('ranking')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'ranking' ? 'bg-amber-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Ranking</button>
@@ -431,10 +433,9 @@ function AdminPanel() {
             </table>
           )}
 
-          {/* NUEVA VISTA: ASISTENCIA */}
+          {/* VISTA ASISTENCIA */}
           {vistaActual === 'asistencia' && (
             <div className="bg-white">
-              {/* Encabezado con estadísticas y botón de descarga */}
               <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
                 <div className="flex gap-6 mb-4 md:mb-0">
                   <div className="text-center">
@@ -455,7 +456,6 @@ function AdminPanel() {
                 </button>
               </div>
 
-              {/* Tabla de Asistencia */}
               <table className="w-full text-left border-collapse min-w-200">
                 <thead>
                   <tr className="bg-teal-700 text-white text-sm">
@@ -565,7 +565,7 @@ function AdminPanel() {
         </div>
       )}
 
-      {/* MODAL EDITAR DINÁMICO EXTENDIDO */}
+      {/* MODAL EDITAR */}
       {modalAbierto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-xs">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 md:p-8 border max-h-[90vh] overflow-y-auto">
@@ -630,7 +630,7 @@ function AdminPanel() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Asignar a Trabajo (Debe coincidir para agrupar QR)</label>
+                    <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Asignar a Trabajo</label>
                     <textarea required rows="2" value={formEstudiante.nombre_trabajo} onChange={(e) => setFormEstudiante({...formEstudiante, nombre_trabajo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm resize-none" />
                   </div>
                 </>
@@ -661,10 +661,10 @@ function AdminPanel() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Cargo Académico</label>
-                      <input type="text" required value={formEvaluador.cargo} onChange={(e) => setFormEvaluador({...formEvaluador, cargo: e.target.value})} placeholder="Ej: Docente" className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
+                      <input type="text" required value={formEvaluador.cargo} onChange={(e) => setFormEvaluador({...formEvaluador, cargo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Evento Sede Encuentro</label>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Evento Sede</label>
                       <select value={formEvaluador.evento_id} onChange={(e) => setFormEvaluador({...formEvaluador, evento_id: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white">
                         {eventosDisponibles.map(ev => <option key={ev.id} value={ev.id}>{ev.nombre}</option>)}
                       </select>
