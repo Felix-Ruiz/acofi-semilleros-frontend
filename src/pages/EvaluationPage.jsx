@@ -6,7 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 const API_URL = "https://acofi-backend.onrender.com";
 
 function EvaluationPage() {
-  const { codigoQR } = useParams(); // Captura el código si vienen desde el QR
+  const { codigoQR } = useParams(); // Captura el código EXACTO de la URL (ej: 783)
   const navigate = useNavigate();
   
   const [ponencias, setPonencias] = useState([]);
@@ -42,13 +42,13 @@ function EvaluationPage() {
 
   // Cargar lista de ponencias aprobadas y proteger la ruta
   useEffect(() => {
-    // ⚠️ SI NO ESTÁ LOGUEADO, ATRAPAMOS EL CÓDIGO EXACTO Y LO MANDAMOS POR FUERZA BRUTA
+    // ⚠️ SI NO ESTÁ LOGUEADO: ATRAPAMOS EL CÓDIGO DEL PÓSTER
     if (!localStorage.getItem('usuario_logueado')) {
-      const rutaDestino = codigoQR ? `/evaluar/${codigoQR}` : window.location.pathname;
-      localStorage.setItem('redirect_after_login', rutaDestino);
-      
-      // Enviamos directo por href para evitar que React Router limpie la URL
-      window.location.href = `/login?redirect=${encodeURIComponent(rutaDestino)}`;
+      if (codigoQR) {
+        // Guardamos SOLO el número (ej: "783")
+        localStorage.setItem('codigo_qr_pendiente', codigoQR);
+      }
+      navigate('/login');
       return;
     }
 

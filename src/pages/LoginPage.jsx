@@ -30,21 +30,17 @@ function LoginPage() {
       localStorage.setItem('usuario_documento', formData.documento); 
       localStorage.setItem('usuario_correo', respuesta.data.correo || ''); 
       
-      // ⚠️ LÓGICA DE REDIRECCIÓN NUCLEAR (Ignora a React Router y fuerza al navegador)
-      const params = new URLSearchParams(window.location.search);
-      const urlDesdeParametro = params.get('redirect');
-      const urlDesdeMemoria = localStorage.getItem('redirect_after_login');
-      
-      const rutaDestino = urlDesdeParametro || urlDesdeMemoria;
+      // ⚠️ LÓGICA DE REDIRECCIÓN A PRUEBA DE BALAS (EL "TICKET")
+      const qrPendiente = localStorage.getItem('codigo_qr_pendiente');
 
-      if (rutaDestino && rutaDestino.includes('evaluar')) {
-        localStorage.removeItem('redirect_after_login'); // Limpiamos memoria
-        
-        // FUERZA BRUTA: Usamos window.location.href para asegurar que vaya al QR exacto
-        window.location.href = rutaDestino; 
+      if (qrPendiente) {
+        // 1. Si venía de escanear un QR específico, lo mandamos a ESA ponencia exacta.
+        localStorage.removeItem('codigo_qr_pendiente'); // Destruimos el ticket
+        navigate(`/evaluar/${qrPendiente}`);
       } else if (respuesta.data.tipo_usuario === 'estudiante') {
         navigate('/mi-ponencia');
       } else {
+        // 2. Si entró directo a la web principal sin escanear nada, va a escanear.
         navigate('/escanear'); 
       }
     } catch (error) {
