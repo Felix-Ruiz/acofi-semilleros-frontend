@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 const API_URL = "https://acofi-backend.onrender.com";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({ documento: '', pin: '' });
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
@@ -22,7 +23,6 @@ function LoginPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/login`, formData);
       
-      // Guardamos la sesión y los datos para autocompletar
       localStorage.setItem('usuario_logueado', 'true');
       localStorage.setItem('usuario_nombre', respuesta.data.nombre);
       localStorage.setItem('usuario_tipo', respuesta.data.tipo_usuario);
@@ -30,17 +30,15 @@ function LoginPage() {
       localStorage.setItem('usuario_documento', formData.documento); 
       localStorage.setItem('usuario_correo', respuesta.data.correo || ''); 
       
-      // ⚠️ LÓGICA DE REDIRECCIÓN A PRUEBA DE BALAS (EL "TICKET")
-      const qrPendiente = localStorage.getItem('codigo_qr_pendiente');
+      // ⚠️ CORRECCIÓN DEFINITIVA: Buscamos la llave exacta
+      const qrPendiente = localStorage.getItem('url_post_login');
 
       if (qrPendiente) {
-        // 1. Si venía de escanear un QR específico, lo mandamos a ESA ponencia exacta.
-        localStorage.removeItem('codigo_qr_pendiente'); // Destruimos el ticket
-        navigate(`/evaluar/${qrPendiente}`);
+        localStorage.removeItem('url_post_login'); // Limpiamos el ticket
+        navigate(qrPendiente); // Lo mandamos exacto a la evaluación
       } else if (respuesta.data.tipo_usuario === 'estudiante') {
         navigate('/mi-ponencia');
       } else {
-        // 2. Si entró directo a la web principal sin escanear nada, va a escanear.
         navigate('/escanear'); 
       }
     } catch (error) {

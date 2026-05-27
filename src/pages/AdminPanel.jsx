@@ -42,7 +42,7 @@ function AdminPanel() {
         setPonencias(res.data);
         const configRes = await axios.get(`${API_URL}/api/admin/configuracion`);
         setRegistroAbierto(configRes.data.registro_abierto);
-      } else if (vistaActual === 'estudiantes') {
+      } else if (vistaActual === 'estudiantes' || vistaActual === 'asistencia') {
         const res = await axios.get(`${API_URL}/api/admin/estudiantes`);
         setEstudiantes(res.data);
       } else if (vistaActual === 'evaluadores') {
@@ -105,6 +105,20 @@ function AdminPanel() {
       cargarDatos();
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al aprobar la ponencia' });
+    }
+  };
+
+  // --- LÓGICA DE ASISTENCIA ---
+  const toggleAsistencia = async (id, estadoActual) => {
+    const nuevoEstado = !estadoActual;
+    // Actualización optimista de la UI
+    setEstudiantes(estudiantes.map(e => e.id === id ? { ...e, asistencia: nuevoEstado } : e));
+    try {
+      await axios.put(`${API_URL}/api/admin/estudiantes/${id}/asistencia`, { asistencia: nuevoEstado });
+    } catch (error) {
+      // Revertir si falla
+      setEstudiantes(estudiantes.map(e => e.id === id ? { ...e, asistencia: estadoActual } : e));
+      setMensaje({ tipo: 'error', texto: 'Error al guardar la asistencia en la base de datos.' });
     }
   };
 
@@ -241,7 +255,7 @@ function AdminPanel() {
       const res = await axios.post(`${API_URL}/api/admin/enviar_qrs`, payload);
       setMensaje({ tipo: 'exito', texto: res.data.mensaje });
     } catch (error) {
-      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error de conexión o fallo en Brevo.' });
+      setMensaje({ tipo: 'error', texto: 'Error al enviar los correos.' });
     } finally {
       setProcesandoAccion(false);
     }
@@ -279,6 +293,10 @@ function AdminPanel() {
     e.documento_identidad.includes(filtroEstudiantes) ||
     e.nombre_trabajo.toLowerCase().includes(filtroEstudiantes.toLowerCase())
   );
+
+  // Cálculos para la vista de Asistencia
+  const totalAsistentes = estudiantes.filter(e => e.asistencia).length;
+  const porcentajeAsistencia = estudiantes.length > 0 ? Math.round((totalAsistentes / estudiantes.length) * 100) : 0;
 
   return (
     <div className="max-w-7xl mx-auto bg-white p-4 md:p-10 rounded-2xl shadow-xl border border-gray-100 w-full overflow-hidden">
@@ -318,6 +336,8 @@ function AdminPanel() {
         <div className="flex flex-wrap gap-2 justify-center w-full lg:w-auto">
           <button onClick={() => setVistaActual('ponencias')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'ponencias' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Ponencias / Grupos</button>
           <button onClick={() => setVistaActual('estudiantes')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'estudiantes' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Estudiantes</button>
+          {/* NUEVO BOTÓN: Control de Asistencia */}
+          <button onClick={() => setVistaActual('asistencia')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'asistencia' ? 'bg-teal-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>✅ Check-in</button>
           <button onClick={() => setVistaActual('evaluadores')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'evaluadores' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Evaluadores</button>
           <button onClick={() => setVistaActual('ranking')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'ranking' ? 'bg-amber-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Ranking</button>
           <button onClick={() => setVistaActual('qr')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'qr' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>QR Evaluadores</button>
@@ -331,7 +351,7 @@ function AdminPanel() {
           </div>
         )}
 
-        {vistaActual === 'estudiantes' && (
+        {(vistaActual === 'estudiantes' || vistaActual === 'asistencia') && (
           <div className="flex flex-col md:flex-row gap-2 w-full lg:w-auto">
             <input type="text" placeholder="Buscar estudiante o documento..." value={filtroEstudiantes} onChange={(e) => setFiltroEstudiantes(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64 outline-none focus:ring-2 focus:ring-blue-900" />
           </div>
@@ -409,6 +429,62 @@ function AdminPanel() {
                 ))}
               </tbody>
             </table>
+          )}
+
+          {/* NUEVA VISTA: ASISTENCIA */}
+          {vistaActual === 'asistencia' && (
+            <div className="bg-white">
+              {/* Encabezado con estadísticas y botón de descarga */}
+              <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <div className="flex gap-6 mb-4 md:mb-0">
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Inscritos</p>
+                    <p className="text-2xl font-bold text-blue-950">{estudiantes.length}</p>
+                  </div>
+                  <div className="text-center border-l pl-6 border-gray-300">
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Asistentes</p>
+                    <p className="text-2xl font-bold text-green-600">{totalAsistentes}</p>
+                  </div>
+                  <div className="text-center border-l pl-6 border-gray-300">
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Aforo</p>
+                    <p className="text-2xl font-bold text-indigo-600">{porcentajeAsistencia}%</p>
+                  </div>
+                </div>
+                <button onClick={() => descargarExcel('asistencia')} className="px-5 py-2.5 bg-teal-600 text-white rounded-lg font-bold shadow-md hover:bg-teal-700 transition-colors flex items-center gap-2">
+                  📥 Descargar Reporte
+                </button>
+              </div>
+
+              {/* Tabla de Asistencia */}
+              <table className="w-full text-left border-collapse min-w-200">
+                <thead>
+                  <tr className="bg-teal-700 text-white text-sm">
+                    <th className="p-4 font-semibold rounded-tl-xl w-1/4">Nombre del Estudiante</th>
+                    <th className="p-4 font-semibold">Documento</th>
+                    <th className="p-4 font-semibold w-1/3">Institución</th>
+                    <th className="p-4 font-semibold text-center rounded-tr-xl">Marcar Asistencia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {estudiantesMostrados.map((e) => (
+                    <tr key={e.id} className={`border-b transition-colors text-sm ${e.asistencia ? 'bg-teal-50 border-teal-100' : 'border-gray-200 hover:bg-gray-50'}`}>
+                      <td className="p-4"><p className={`font-semibold ${e.asistencia ? 'text-teal-900' : 'text-gray-800'}`}>{e.nombres_apellidos}</p></td>
+                      <td className="p-4"><span className="text-gray-700 font-mono">{e.documento_identidad}</span></td>
+                      <td className="p-4"><p className="text-gray-800">{e.institucion}</p></td>
+                      <td className="p-4 text-center">
+                        <button 
+                          onClick={() => toggleAsistencia(e.id, e.asistencia)}
+                          className={`w-12 h-6 rounded-full relative transition-colors duration-300 focus:outline-none shadow-inner ${e.asistencia ? 'bg-teal-500' : 'bg-gray-300'}`}
+                        >
+                          <span className={`absolute top-1/2 -translate-y-1/2 left-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-300 ${e.asistencia ? 'translate-x-6' : 'translate-x-0'}`}></span>
+                        </button>
+                        <p className={`text-xs mt-1 font-bold ${e.asistencia ? 'text-teal-600' : 'text-gray-400'}`}>{e.asistencia ? 'PRESENTE' : 'AUSENTE'}</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {/* VISTA EVALUADORES */}

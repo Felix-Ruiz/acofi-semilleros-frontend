@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 
 // URL base de producción
 const API_URL = "https://acofi-backend.onrender.com";
 
 function EvaluationPage() {
-  const { codigoQR } = useParams(); // Captura el código EXACTO de la URL (ej: 783)
+  const { codigoQR } = useParams(); 
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [ponencias, setPonencias] = useState([]);
   const [formData, setFormData] = useState({
@@ -17,11 +18,7 @@ function EvaluationPage() {
     titulo_poster: '',
     codigo_poster: codigoQR || '',
     respuestas: {
-      q6: '',
-      q7: '',
-      q8: '',
-      q9: '',
-      q10: ''
+      q6: '', q7: '', q8: '', q9: '', q10: ''
     },
     comentarios: ''
   });
@@ -30,7 +27,6 @@ function EvaluationPage() {
   const [cargando, setCargando] = useState(false);
   const [cargandoDatos, setCargandoDatos] = useState(true);
 
-  // Asegurar que si el estado de React se recarga, los datos sigan ahí
   useEffect(() => {
     const nombre = localStorage.getItem('usuario_nombre');
     const doc = localStorage.getItem('usuario_documento');
@@ -40,15 +36,12 @@ function EvaluationPage() {
     }
   }, []);
 
-  // Cargar lista de ponencias aprobadas y proteger la ruta
   useEffect(() => {
-    // ⚠️ SI NO ESTÁ LOGUEADO: ATRAPAMOS EL CÓDIGO DEL PÓSTER
+    // ⚠️ GUARDAMOS LA LLAVE EXACTA ANTES DE IR A LOGIN
     if (!localStorage.getItem('usuario_logueado')) {
-      if (codigoQR) {
-        // Guardamos SOLO el número (ej: "783")
-        localStorage.setItem('codigo_qr_pendiente', codigoQR);
-      }
-      navigate('/login');
+      const rutaDestino = codigoQR ? `/evaluar/${codigoQR}` : window.location.pathname;
+      localStorage.setItem('url_post_login', rutaDestino);
+      navigate(`/login`);
       return;
     }
 
@@ -71,7 +64,7 @@ function EvaluationPage() {
       }
     };
     cargarPonencias();
-  }, [codigoQR, navigate]);
+  }, [codigoQR, navigate, location]);
 
   const handleCodigoChange = (e) => {
     const codigoIngresado = e.target.value;
@@ -123,8 +116,6 @@ function EvaluationPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
-      
-      // Al finalizar, mandamos a escanear nuevamente para el próximo póster
       setTimeout(() => navigate('/escanear'), 3000);
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al enviar evaluación.' });
@@ -174,7 +165,6 @@ function EvaluationPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* SECCIÓN 1: DATOS DEL EVALUADOR Y PONENCIA */}
         <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-6">
           <h3 className="text-xl font-bold text-gray-800 border-b pb-2 flex justify-between items-center">
             Datos de Identificación
@@ -222,7 +212,6 @@ function EvaluationPage() {
           </div>
         </div>
 
-        {/* SECCIÓN 2: RÚBRICA */}
         <div className="pt-4">
           <div className="bg-blue-50 border border-blue-100 p-6 rounded-xl mb-8">
             <p className="font-semibold text-blue-900 mb-4">La evaluación de cada poster debe ser realizada de acuerdo a los siguientes conceptos:</p>
@@ -252,7 +241,6 @@ function EvaluationPage() {
           <FilaRubrica num="10" titulo="Conclusiones" descripcion="Coherentes con los objetivos y resultados esperados y se proponen ideas de avance." stateKey="q10" />
         </div>
 
-        {/* SECCIÓN 3: COMENTARIOS */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">11. Tiene algún comentario sobre la/el/los estudiantes, la exposición o el poster:</label>
           <textarea name="comentarios" rows="4" value={formData.comentarios} onChange={handleGeneralChange} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none resize-none" placeholder="Escriba sus observaciones aquí..."></textarea>
