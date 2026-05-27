@@ -41,12 +41,13 @@ function EvaluationPage() {
     }
   }, []);
 
-  // Cargar lista de ponencias aprobadas
+  // Cargar lista de ponencias aprobadas y verificar sesión
   useEffect(() => {
-    // ⚠️ SI EL EVALUADOR NO TIENE SESIÓN, GUARDAMOS LA URL EXACTA DEL QR ANTES DE REDIRIGIRLO
+    // ⚠️ SI EL EVALUADOR NO TIENE SESIÓN, GUARDAMOS LA URL EXACTA EN LA MEMORIA ANTES DE REDIRIGIR
     if (!localStorage.getItem('usuario_logueado')) {
-      localStorage.setItem('redirect_after_login', location.pathname);
-      navigate(`/login`);
+      const rutaExacta = window.location.pathname; // Lee la ruta directamente del navegador
+      localStorage.setItem('redirect_after_login', rutaExacta);
+      navigate(`/login?redirect=${encodeURIComponent(rutaExacta)}`);
       return;
     }
 
@@ -121,6 +122,8 @@ function EvaluationPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
+      
+      // Al finalizar con éxito, lo devolvemos al escáner para la siguiente evaluación
       setTimeout(() => navigate('/escanear'), 3000);
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al enviar evaluación.' });
