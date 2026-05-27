@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 // URL base de producción
 const API_URL = "https://acofi-backend.onrender.com";
@@ -8,7 +8,6 @@ const API_URL = "https://acofi-backend.onrender.com";
 function EvaluationPage() {
   const { codigoQR } = useParams(); // Captura el código si vienen desde el QR
   const navigate = useNavigate();
-  const location = useLocation();
   
   const [ponencias, setPonencias] = useState([]);
   const [formData, setFormData] = useState({
@@ -41,13 +40,15 @@ function EvaluationPage() {
     }
   }, []);
 
-  // Cargar lista de ponencias aprobadas y verificar sesión
+  // Cargar lista de ponencias aprobadas y proteger la ruta
   useEffect(() => {
-    // ⚠️ SI EL EVALUADOR NO TIENE SESIÓN, GUARDAMOS LA URL EXACTA EN LA MEMORIA ANTES DE REDIRIGIR
+    // ⚠️ SI NO ESTÁ LOGUEADO, ATRAPAMOS EL CÓDIGO EXACTO Y LO MANDAMOS POR FUERZA BRUTA
     if (!localStorage.getItem('usuario_logueado')) {
-      const rutaExacta = window.location.pathname; // Lee la ruta directamente del navegador
-      localStorage.setItem('redirect_after_login', rutaExacta);
-      navigate(`/login?redirect=${encodeURIComponent(rutaExacta)}`);
+      const rutaDestino = codigoQR ? `/evaluar/${codigoQR}` : window.location.pathname;
+      localStorage.setItem('redirect_after_login', rutaDestino);
+      
+      // Enviamos directo por href para evitar que React Router limpie la URL
+      window.location.href = `/login?redirect=${encodeURIComponent(rutaDestino)}`;
       return;
     }
 
@@ -70,7 +71,7 @@ function EvaluationPage() {
       }
     };
     cargarPonencias();
-  }, [codigoQR, navigate, location]);
+  }, [codigoQR, navigate]);
 
   const handleCodigoChange = (e) => {
     const codigoIngresado = e.target.value;
@@ -123,7 +124,7 @@ function EvaluationPage() {
       const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
       
-      // Al finalizar con éxito, lo devolvemos al escáner para la siguiente evaluación
+      // Al finalizar, mandamos a escanear nuevamente para el próximo póster
       setTimeout(() => navigate('/escanear'), 3000);
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al enviar evaluación.' });

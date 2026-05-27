@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const API_URL = "https://acofi-backend.onrender.com";
 
 function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [formData, setFormData] = useState({ documento: '', pin: '' });
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
@@ -31,21 +30,21 @@ function LoginPage() {
       localStorage.setItem('usuario_documento', formData.documento); 
       localStorage.setItem('usuario_correo', respuesta.data.correo || ''); 
       
-      // ⚠️ LÓGICA DE REDIRECCIÓN CON ANCLA SEGURA
-      const params = new URLSearchParams(location.search);
+      // ⚠️ LÓGICA DE REDIRECCIÓN NUCLEAR (Ignora a React Router y fuerza al navegador)
+      const params = new URLSearchParams(window.location.search);
       const urlDesdeParametro = params.get('redirect');
       const urlDesdeMemoria = localStorage.getItem('redirect_after_login');
       
-      // Validamos si hay una ruta pendiente de evaluación
       const rutaDestino = urlDesdeParametro || urlDesdeMemoria;
 
-      if (rutaDestino && rutaDestino.includes('/evaluar')) {
-        localStorage.removeItem('redirect_after_login'); // Limpiamos la memoria
-        navigate(rutaDestino); // Lo enviamos directo al formulario de evaluación del QR
+      if (rutaDestino && rutaDestino.includes('evaluar')) {
+        localStorage.removeItem('redirect_after_login'); // Limpiamos memoria
+        
+        // FUERZA BRUTA: Usamos window.location.href para asegurar que vaya al QR exacto
+        window.location.href = rutaDestino; 
       } else if (respuesta.data.tipo_usuario === 'estudiante') {
         navigate('/mi-ponencia');
       } else {
-        // VISTA DE ESCÁNER RESTAURADA COMO REDIRECCIÓN POR DEFECTO
         navigate('/escanear'); 
       }
     } catch (error) {
