@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
+import { useNavigate } from 'react-router-dom';
 
 const API_URL = "https://acofi-backend.onrender.com";
 
 function AdminPanel() {
+  const navigate = useNavigate();
   const [ponencias, setPonencias] = useState([]);
   const [estudiantes, setEstudiantes] = useState([]);
   const [evaluadores, setEvaluadores] = useState([]);
@@ -34,17 +36,17 @@ function AdminPanel() {
   const ciudadesColombia = ['Arauca', 'Armenia', 'Barranquilla', 'Bogotá D.C.', 'Bucaramanga', 'Cali', 'Cartagena de Indias', 'Cúcuta', 'Florencia', 'Ibagué', 'Inírida', 'Leticia', 'Manizales', 'Medellín', 'Mitú', 'Mocoa', 'Montería', 'Neiva', 'Pasto', 'Pereira', 'Popayán', 'Puerto Carreño', 'Quibdó', 'Riohacha', 'San Andrés', 'San José del Guaviare', 'Santa Marta', 'Sincelejo', 'Tunja', 'Valledupar', 'Villavicencio', 'Yopal'];
   const eventosDisponibles = [{ id: 1, nombre: "Barranquilla, Atlántico" }, { id: 2, nombre: "Bogotá, Distrito Capital" }, { id: 3, nombre: "Pereira, Risaralda" }];
 
-  // ⚠️ SEGURIDAD CRÍTICA: Guardián de Ruta para expulsar intrusos
+  // GUARDIÁN DE RUTA SEGURO
   useEffect(() => {
     const tipoUsuario = localStorage.getItem('usuario_tipo');
     if (tipoUsuario !== 'admin') {
-      window.location.href = '/login'; // Expulsa inmediatamente
+      navigate('/login');
       return;
     }
     
     if (vistaActual !== 'qr') cargarDatos();
     else setCargando(false);
-  }, [vistaActual]);
+  }, [vistaActual, navigate]);
 
   const cargarDatos = async () => {
     try {
