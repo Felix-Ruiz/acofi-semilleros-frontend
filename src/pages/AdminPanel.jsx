@@ -5,7 +5,6 @@ import { QRCodeSVG } from 'qrcode.react';
 const API_URL = "https://acofi-backend.onrender.com";
 
 function AdminPanel() {
-  const [autorizado, setAutorizado] = useState(false);
   const [ponencias, setPonencias] = useState([]);
   const [estudiantes, setEstudiantes] = useState([]);
   const [evaluadores, setEvaluadores] = useState([]);
@@ -35,17 +34,6 @@ function AdminPanel() {
   const ciudadesColombia = ['Arauca', 'Armenia', 'Barranquilla', 'Bogotá D.C.', 'Bucaramanga', 'Cali', 'Cartagena de Indias', 'Cúcuta', 'Florencia', 'Ibagué', 'Inírida', 'Leticia', 'Manizales', 'Medellín', 'Mitú', 'Mocoa', 'Montería', 'Neiva', 'Pasto', 'Pereira', 'Popayán', 'Puerto Carreño', 'Quibdó', 'Riohacha', 'San Andrés', 'San José del Guaviare', 'Santa Marta', 'Sincelejo', 'Tunja', 'Valledupar', 'Villavicencio', 'Yopal'];
   const eventosDisponibles = [{ id: 1, nombre: "Barranquilla, Atlántico" }, { id: 2, nombre: "Bogotá, Distrito Capital" }, { id: 3, nombre: "Pereira, Risaralda" }];
 
-  // ⚠️ SEGURIDAD CRÍTICA: Bloquea a los curiosos al instante
-  useEffect(() => {
-    if (localStorage.getItem('usuario_tipo') !== 'admin') {
-      window.location.href = '/login'; 
-      return;
-    }
-    setAutorizado(true);
-    if (vistaActual !== 'qr') cargarDatos();
-    else setCargando(false);
-  }, [vistaActual]);
-
   const cargarDatos = async () => {
     try {
       setCargando(true);
@@ -71,6 +59,11 @@ function AdminPanel() {
     }
   };
 
+  useEffect(() => {
+    if (vistaActual !== 'qr') cargarDatos();
+    else setCargando(false);
+  }, [vistaActual]);
+
   const toggleInscripciones = async () => {
     try {
       const res = await axios.post(`${API_URL}/api/admin/configuracion/toggle`);
@@ -82,7 +75,7 @@ function AdminPanel() {
   };
 
   const borrarTodos = async (entidad) => {
-    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?`);
+    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?\n\nEsta acción borrará recursos físicos de Cloudinary. NO SE PUEDE DESHACER.`);
     if (!confirmacion) return;
     
     const confirmacion2 = window.prompt(`Para confirmar, escribe exactamente la palabra "ELIMINAR"`);
@@ -160,11 +153,34 @@ function AdminPanel() {
     setModalEntidad(entidad);
     setIdSeleccionado(item.id);
     if (entidad === 'ponencia') {
-      setFormPonencia({ titulo: item.titulo, estudiante_nombre: item.estudiante_nombre, estudiante_documento: item.estudiante_documento, estudiante_institucion: item.estudiante_institucion, estudiante_correo: item.estudiante_correo, estudiante_ciudad: item.estudiante_ciudad, estudiante_cargo: item.estudiante_cargo });
+      setFormPonencia({
+        titulo: item.titulo,
+        estudiante_nombre: item.estudiante_nombre,
+        estudiante_documento: item.estudiante_documento,
+        estudiante_institucion: item.estudiante_institucion,
+        estudiante_correo: item.estudiante_correo,
+        estudiante_ciudad: item.estudiante_ciudad,
+        estudiante_cargo: item.estudiante_cargo
+      });
     } else if (entidad === 'estudiante') {
-      setFormEstudiante({ nombres_apellidos: item.nombres_apellidos, documento_identidad: item.documento_identidad, institucion: item.institucion, correo: item.correo, ciudad: item.ciudad, cargo: item.cargo, nombre_trabajo: item.nombre_trabajo });
+      setFormEstudiante({
+        nombres_apellidos: item.nombres_apellidos,
+        documento_identidad: item.documento_identidad,
+        institucion: item.institucion,
+        correo: item.correo,
+        ciudad: item.ciudad,
+        cargo: item.cargo,
+        nombre_trabajo: item.nombre_trabajo
+      });
     } else {
-      setFormEvaluador({ nombres_apellidos: item.nombres_apellidos, documento_identidad: item.documento_identidad, institucion: item.institucion, correo: item.correo, cargo: item.cargo, evento_id: String(item.evento_id) });
+      setFormEvaluador({
+        nombres_apellidos: item.nombres_apellidos,
+        documento_identidad: item.documento_identidad,
+        institucion: item.institucion,
+        correo: item.correo,
+        cargo: item.cargo,
+        evento_id: String(item.evento_id)
+      });
     }
     setModalAbierto(true);
   };
@@ -185,7 +201,9 @@ function AdminPanel() {
     try {
       if (modalModo === 'crear') {
         const respuesta = await axios.post(urlBase, payload);
-        const textoExito = respuesta.data.pin ? `${respuesta.data.mensaje} | PIN DE ACCESO: ${respuesta.data.pin}` : respuesta.data.mensaje || 'Registro creado exitosamente.';
+        const textoExito = respuesta.data.pin 
+          ? `${respuesta.data.mensaje} | PIN DE ACCESO: ${respuesta.data.pin}` 
+          : respuesta.data.mensaje || 'Registro creado exitosamente.';
         setMensaje({ tipo: 'exito', texto: textoExito });
       } else {
         await axios.put(`${urlBase}/${idSeleccionado}`, payload);
@@ -276,17 +294,24 @@ function AdminPanel() {
   const totalAsistentes = estudiantes.filter(e => e.asistencia).length;
   const porcentajeAsistencia = estudiantes.length > 0 ? Math.round((totalAsistentes / estudiantes.length) * 100) : 0;
 
-  if (!autorizado) return null; // Si no es admin, pantalla en blanco y expulsión
-
   return (
     <div className="max-w-7xl mx-auto bg-white p-4 md:p-10 rounded-2xl shadow-xl border border-gray-100 w-full overflow-hidden">
+      
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b pb-4 gap-4">
         <div className="flex flex-col items-center md:items-start gap-2">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-800 text-center md:text-left">Panel de Administración</h2>
-          <button onClick={toggleInscripciones} className={`px-3 py-1 rounded-full font-bold text-xs shadow-xs transition-colors border ${registroAbierto ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>
+          <button 
+            onClick={toggleInscripciones}
+            className={`px-3 py-1 rounded-full font-bold text-xs shadow-xs transition-colors border ${
+              registroAbierto 
+                ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+            }`}
+          >
             Inscripciones Estudiantes: {registroAbierto ? '🟢 ABIERTAS' : '🔴 CERRADAS'}
           </button>
         </div>
+
         <div className="flex flex-wrap gap-2 justify-center">
           <label className={`px-3 py-2 text-white text-xs md:text-sm rounded-lg font-medium transition-colors cursor-pointer ${procesandoAccion ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
             {procesandoAccion ? 'Procesando...' : 'Subir Excel'}
@@ -299,7 +324,9 @@ function AdminPanel() {
         </div>
       </div>
 
-      {mensaje.texto && <div className={`p-4 mb-6 rounded-lg font-medium text-center text-sm md:text-base ${mensaje.tipo === 'exito' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{mensaje.texto}</div>}
+      {mensaje.texto && (
+        <div className={`p-4 mb-6 rounded-lg font-medium text-center text-sm md:text-base ${mensaje.tipo === 'exito' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{mensaje.texto}</div>
+      )}
 
       <div className="flex flex-col lg:flex-row justify-between items-center gap-4 mb-6 border-b pb-4">
         <div className="flex flex-wrap gap-2 justify-center w-full lg:w-auto">
@@ -339,11 +366,13 @@ function AdminPanel() {
       ) : (
         <div className="w-full overflow-x-auto pb-4">
           
+          {/* VISTA PONENCIAS */}
           {vistaActual === 'ponencias' && (
             <table className="w-full text-left border-collapse min-w-200">
               <thead>
                 <tr className="bg-blue-950 text-white text-sm">
-                  <th className="p-4 font-semibold rounded-tl-xl w-1/3">Trabajo</th>
+                  <th className="p-4 font-semibold rounded-tl-xl w-12 text-center">#</th>
+                  <th className="p-4 font-semibold w-1/3">Trabajo</th>
                   <th className="p-4 font-semibold w-1/4">Integrantes / Institución</th>
                   <th className="p-4 font-semibold w-1/6">Estado</th>
                   <th className="p-4 font-semibold w-1/6">Código / QR</th>
@@ -351,8 +380,9 @@ function AdminPanel() {
                 </tr>
               </thead>
               <tbody>
-                {ponenciasMostradas.map((p) => (
+                {ponenciasMostradas.map((p, index) => (
                   <tr key={p.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+                    <td className="p-4 text-center font-bold text-gray-500">{index + 1}</td>
                     <td className="p-4"><p className="font-semibold text-gray-800">{p.titulo}</p></td>
                     <td className="p-4"><p className="text-gray-800 font-medium">{p.estudiante_nombre}</p><p className="text-xs text-gray-500 mt-1">{p.estudiante_institucion}</p></td>
                     <td className="p-4"><span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${p.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{p.estado}</span></td>
@@ -368,11 +398,13 @@ function AdminPanel() {
             </table>
           )}
 
+          {/* VISTA ESTUDIANTES */}
           {vistaActual === 'estudiantes' && (
             <table className="w-full text-left border-collapse min-w-200">
               <thead>
                 <tr className="bg-blue-950 text-white text-sm">
-                  <th className="p-4 font-semibold rounded-tl-xl w-1/4">Nombre del Estudiante</th>
+                  <th className="p-4 font-semibold rounded-tl-xl w-12 text-center">#</th>
+                  <th className="p-4 font-semibold w-1/4">Nombre del Estudiante</th>
                   <th className="p-4 font-semibold">Documento / PIN</th>
                   <th className="p-4 font-semibold w-1/4">Institución / Rol</th>
                   <th className="p-4 font-semibold w-1/4">Proyecto al que Pertenece</th>
@@ -380,8 +412,9 @@ function AdminPanel() {
                 </tr>
               </thead>
               <tbody>
-                {estudiantesMostrados.map((e) => (
+                {estudiantesMostrados.map((e, index) => (
                   <tr key={e.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+                    <td className="p-4 text-center font-bold text-gray-500">{index + 1}</td>
                     <td className="p-4"><p className="font-semibold text-gray-800">{e.nombres_apellidos}</p><p className="text-xs text-gray-500">{e.correo}</p></td>
                     <td className="p-4"><span className="text-gray-700 font-mono block">{e.documento_identidad}</span><span className="block mt-1 text-xs font-bold text-blue-800 bg-blue-50 w-max px-2 py-0.5 rounded">PIN: {e.pin_acceso || 'N/A'}</span></td>
                     <td className="p-4"><p className="text-gray-800 font-medium">{e.institucion}</p><p className="text-xs text-gray-500">{e.cargo} | <span className="italic text-blue-900">{e.ciudad}</span></p></td>
@@ -397,6 +430,7 @@ function AdminPanel() {
             </table>
           )}
 
+          {/* VISTA ASISTENCIA */}
           {vistaActual === 'asistencia' && (
             <div className="bg-white">
               <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
@@ -422,20 +456,25 @@ function AdminPanel() {
               <table className="w-full text-left border-collapse min-w-200">
                 <thead>
                   <tr className="bg-teal-700 text-white text-sm">
-                    <th className="p-4 font-semibold rounded-tl-xl w-1/4">Nombre del Estudiante</th>
+                    <th className="p-4 font-semibold rounded-tl-xl w-12 text-center">#</th>
+                    <th className="p-4 font-semibold w-1/4">Nombre del Estudiante</th>
                     <th className="p-4 font-semibold">Documento</th>
                     <th className="p-4 font-semibold w-1/3">Institución</th>
                     <th className="p-4 font-semibold text-center rounded-tr-xl">Marcar Asistencia</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {estudiantesMostrados.map((e) => (
+                  {estudiantesMostrados.map((e, index) => (
                     <tr key={e.id} className={`border-b transition-colors text-sm ${e.asistencia ? 'bg-teal-50 border-teal-100' : 'border-gray-200 hover:bg-gray-50'}`}>
+                      <td className="p-4 text-center font-bold text-gray-500">{index + 1}</td>
                       <td className="p-4"><p className={`font-semibold ${e.asistencia ? 'text-teal-900' : 'text-gray-800'}`}>{e.nombres_apellidos}</p></td>
                       <td className="p-4"><span className="text-gray-700 font-mono">{e.documento_identidad}</span></td>
                       <td className="p-4"><p className="text-gray-800">{e.institucion}</p></td>
                       <td className="p-4 text-center">
-                        <button onClick={() => toggleAsistencia(e.id, e.asistencia)} className={`w-12 h-6 rounded-full relative transition-colors duration-300 focus:outline-none shadow-inner ${e.asistencia ? 'bg-teal-500' : 'bg-gray-300'}`}>
+                        <button 
+                          onClick={() => toggleAsistencia(e.id, e.asistencia)}
+                          className={`w-12 h-6 rounded-full relative transition-colors duration-300 focus:outline-none shadow-inner ${e.asistencia ? 'bg-teal-500' : 'bg-gray-300'}`}
+                        >
                           <span className={`absolute top-1/2 -translate-y-1/2 left-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-300 ${e.asistencia ? 'translate-x-6' : 'translate-x-0'}`}></span>
                         </button>
                         <p className={`text-xs mt-1 font-bold ${e.asistencia ? 'text-teal-600' : 'text-gray-400'}`}>{e.asistencia ? 'PRESENTE' : 'AUSENTE'}</p>
@@ -447,6 +486,7 @@ function AdminPanel() {
             </div>
           )}
 
+          {/* VISTA EVALUADORES */}
           {vistaActual === 'evaluadores' && (
             <table className="w-full text-left border-collapse min-w-200">
               <thead>
@@ -473,6 +513,7 @@ function AdminPanel() {
             </table>
           )}
 
+          {/* RANKING */}
           {vistaActual === 'ranking' && (
             <table className="w-full text-left border-collapse min-w-175">
               <thead>
@@ -509,6 +550,7 @@ function AdminPanel() {
         </div>
       )}
 
+      {/* MODAL DE CONFIRMACIÓN */}
       {modalConfirmacion.abierto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
           <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 border-t-4 border-red-600 text-center">
@@ -522,6 +564,7 @@ function AdminPanel() {
         </div>
       )}
 
+      {/* MODAL EDITAR */}
       {modalAbierto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-xs">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 md:p-8 border max-h-[90vh] overflow-y-auto">
@@ -578,7 +621,11 @@ function AdminPanel() {
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Cargo</label>
-                      <input type="text" required placeholder="Ej: Estudiante 1, Ponente..." value={formEstudiante.cargo} onChange={(e) => setFormEstudiante({...formEstudiante, cargo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white" />
+                      <select required value={formEstudiante.cargo} onChange={(e) => setFormEstudiante({...formEstudiante, cargo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white">
+                        <option value="Lider de semillero">Lider de semillero</option>
+                        <option value="Estudiante 1">Estudiante 1</option>
+                        <option value="Estudiante 2">Estudiante 2</option>
+                      </select>
                     </div>
                   </div>
                   <div>
@@ -633,6 +680,7 @@ function AdminPanel() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

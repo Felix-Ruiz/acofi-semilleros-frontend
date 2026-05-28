@@ -28,7 +28,6 @@ function EvaluationPage() {
   const [cargando, setCargando] = useState(false);
   const [cargandoDatos, setCargandoDatos] = useState(true);
 
-  // ⚠️ LÓGICA INFALIBLE DE LOGIN DIRECTO: Sin redirecciones, sin perder el QR
   const handleLoginInline = async (e) => {
     e.preventDefault();
     setLoginCargando(true);
@@ -47,7 +46,7 @@ function EvaluationPage() {
          documento_evaluador: loginForm.documento,
          correo_evaluador: res.data.correo || ''
       }));
-      setUsuarioLogueado(true); // Desbloquea la rúbrica al instante
+      setUsuarioLogueado(true); 
     } catch (err) {
       setLoginError(err.response?.data?.error || 'Credenciales incorrectas.');
     } finally {
@@ -56,7 +55,7 @@ function EvaluationPage() {
   };
 
   useEffect(() => {
-    if (!usuarioLogueado) return; // Si no está logueado, no hace peticiones aún
+    if (!usuarioLogueado) return; 
 
     const cargarPonencias = async () => {
       try {
@@ -110,7 +109,7 @@ function EvaluationPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
-      setTimeout(() => navigate('/'), 3000); // Lo manda al inicio tras evaluar
+      setTimeout(() => navigate('/'), 3000); 
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al enviar evaluación.' });
     } finally {
@@ -135,7 +134,6 @@ function EvaluationPage() {
     </div>
   );
 
-  // ⚠️ SI NO HAY SESIÓN, SE MUESTRA EL LOGIN INCRUSTADO AQUÍ MISMO
   if (!usuarioLogueado) {
     return (
       <div className="max-w-md mx-auto bg-white p-8 md:p-10 rounded-2xl shadow-xl border border-gray-100 flex flex-col items-center mt-10">
@@ -156,7 +154,6 @@ function EvaluationPage() {
     );
   }
 
-  // SI YA ESTÁ LOGUEADO, MUESTRA LA RÚBRICA
   return (
     <div className="max-w-4xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-xl border border-gray-100">
       <h2 className="text-3xl md:text-4xl font-bold text-blue-950 mb-4 text-center">Rúbrica de Evaluación</h2>
@@ -208,7 +205,7 @@ function EvaluationPage() {
             <ul className="space-y-2 text-sm text-gray-700">
               <li><strong className="text-blue-900">(10 puntos)</strong> Se recomienda replantear con acompañamiento del tutor.</li>
               <li><strong className="text-blue-900">(20 puntos)</strong> Propuesta con debilidades que requieren ajustes conceptuales o metodológicos.</li>
-              <li><strong className="text-blue-900">(30 puntos)</strong> Buena propuesta con elementos para afinar o profundizar.</li>
+              <li><strong className="text-blue-900">(30 puntos)</strong> Buena propuesta con elements para afinar o profundizar.</li>
               <li><strong className="text-blue-900">(40 puntos)</strong> Propuesta sólida y bien estructurada pero puede mejorar.</li>
               <li><strong className="text-blue-900">(50 puntos)</strong> Excelente base para continuar el proceso investigativo.</li>
             </ul>
