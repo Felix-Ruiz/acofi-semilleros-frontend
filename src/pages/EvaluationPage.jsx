@@ -8,6 +8,11 @@ function EvaluationPage() {
   const { codigoQR } = useParams(); 
   const navigate = useNavigate();
   
+  const [usuarioLogueado, setUsuarioLogueado] = useState(localStorage.getItem('usuario_logueado') === 'true');
+  const [loginForm, setLoginForm] = useState({ documento: '', pin: '' });
+  const [loginError, setLoginError] = useState('');
+  const [loginCargando, setLoginCargando] = useState(false);
+
   const [ponencias, setPonencias] = useState([]);
   const [formData, setFormData] = useState({
     nombres_evaluador: localStorage.getItem('usuario_nombre') || '',
@@ -15,9 +20,7 @@ function EvaluationPage() {
     correo_evaluador: localStorage.getItem('usuario_correo') || '', 
     titulo_poster: '',
     codigo_poster: codigoQR || '',
-    respuestas: {
-      q6: '', q7: '', q8: '', q9: '', q10: ''
-    },
+    respuestas: { q6: '', q7: '', q8: '', q9: '', q10: '' },
     comentarios: ''
   });
 
@@ -25,24 +28,35 @@ function EvaluationPage() {
   const [cargando, setCargando] = useState(false);
   const [cargandoDatos, setCargandoDatos] = useState(true);
 
-  useEffect(() => {
-    const nombre = localStorage.getItem('usuario_nombre');
-    const doc = localStorage.getItem('usuario_documento');
-    const correo = localStorage.getItem('usuario_correo'); 
-    if (nombre && doc) {
-      setFormData(prev => ({ ...prev, nombres_evaluador: nombre, documento_evaluador: doc, correo_evaluador: correo }));
+  // ⚠️ LÓGICA INFALIBLE DE LOGIN DIRECTO: Sin redirecciones, sin perder el QR
+  const handleLoginInline = async (e) => {
+    e.preventDefault();
+    setLoginCargando(true);
+    setLoginError('');
+    try {
+      const res = await axios.post(`${API_URL}/api/login`, loginForm);
+      localStorage.setItem('usuario_logueado', 'true');
+      localStorage.setItem('usuario_nombre', res.data.nombre);
+      localStorage.setItem('usuario_tipo', res.data.tipo_usuario);
+      localStorage.setItem('usuario_documento', loginForm.documento);
+      localStorage.setItem('usuario_correo', res.data.correo || '');
+      
+      setFormData(prev => ({
+         ...prev,
+         nombres_evaluador: res.data.nombre,
+         documento_evaluador: loginForm.documento,
+         correo_evaluador: res.data.correo || ''
+      }));
+      setUsuarioLogueado(true); // Desbloquea la rúbrica al instante
+    } catch (err) {
+      setLoginError(err.response?.data?.error || 'Credenciales incorrectas.');
+    } finally {
+      setLoginCargando(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    // ⚠️ SI NO ESTÁ LOGUEADO: ATRAPAMOS EL CÓDIGO Y FORZAMOS EL LOGIN FÍSICO
-    if (!localStorage.getItem('usuario_logueado')) {
-      if (codigoQR) {
-        localStorage.setItem('qr_pending_route', `/evaluar/${codigoQR}`);
-      }
-      window.location.href = '/login';
-      return;
-    }
+    if (!usuarioLogueado) return; // Si no está logueado, no hace peticiones aún
 
     const cargarPonencias = async () => {
       try {
@@ -63,34 +77,18 @@ function EvaluationPage() {
       }
     };
     cargarPonencias();
-  }, [codigoQR]);
+  }, [codigoQR, usuarioLogueado]);
 
   const handleCodigoChange = (e) => {
     const codigoIngresado = e.target.value;
     let tituloEncontrado = '';
-
     const ponenciaEncontrada = ponencias.find(p => p.codigo === codigoIngresado);
-    if (ponenciaEncontrada) {
-      tituloEncontrado = ponenciaEncontrada.titulo;
-    }
-
-    setFormData({
-      ...formData,
-      codigo_poster: codigoIngresado,
-      titulo_poster: tituloEncontrado
-    });
+    if (ponenciaEncontrada) tituloEncontrado = ponenciaEncontrada.titulo;
+    setFormData({ ...formData, codigo_poster: codigoIngresado, titulo_poster: tituloEncontrado });
   };
 
-  const handleGeneralChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleRubricaChange = (pregunta, valor) => {
-    setFormData({
-      ...formData,
-      respuestas: { ...formData.respuestas, [pregunta]: valor }
-    });
-  };
+  const handleGeneralChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleRubricaChange = (pregunta, valor) => setFormData({ ...formData, respuestas: { ...formData.respuestas, [pregunta]: valor } });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -98,7 +96,7 @@ function EvaluationPage() {
     setMensaje({ tipo: '', texto: '' });
 
     if (!formData.titulo_poster) {
-      setMensaje({ tipo: 'error', texto: 'Código de póster inválido. No se encontró ninguna ponencia.' });
+      setMensaje({ tipo: 'error', texto: 'Código de póster inválido. No se encontró ninguna ponencia con ese código.' });
       setCargando(false);
       return;
     }
@@ -106,16 +104,13 @@ function EvaluationPage() {
     const payload = {
       documento_evaluador: formData.documento_evaluador,
       ponencia_codigo: formData.codigo_poster,
-      respuestas: {
-        ...formData.respuestas,
-        comentarios: formData.comentarios
-      }
+      respuestas: { ...formData.respuestas, comentarios: formData.comentarios }
     };
 
     try {
       const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
-      setTimeout(() => navigate('/'), 3000);
+      setTimeout(() => navigate('/'), 3000); // Lo manda al inicio tras evaluar
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al enviar evaluación.' });
     } finally {
@@ -133,21 +128,35 @@ function EvaluationPage() {
         {[10, 20, 30, 40, 50].map(puntos => (
           <label key={puntos} className="flex flex-col items-center cursor-pointer group">
             <span className="text-xs text-gray-400 mb-2 md:hidden">{puntos} pts</span>
-            <input 
-              type="radio" 
-              name={stateKey} 
-              value={puntos} 
-              required
-              checked={formData.respuestas[stateKey] === String(puntos)}
-              onChange={() => handleRubricaChange(stateKey, String(puntos))}
-              className="w-5 h-5 text-blue-800 border-gray-300 focus:ring-blue-800 cursor-pointer"
-            />
+            <input type="radio" name={stateKey} value={puntos} required checked={formData.respuestas[stateKey] === String(puntos)} onChange={() => handleRubricaChange(stateKey, String(puntos))} className="w-5 h-5 text-blue-800 border-gray-300 focus:ring-blue-800 cursor-pointer" />
           </label>
         ))}
       </div>
     </div>
   );
 
+  // ⚠️ SI NO HAY SESIÓN, SE MUESTRA EL LOGIN INCRUSTADO AQUÍ MISMO
+  if (!usuarioLogueado) {
+    return (
+      <div className="max-w-md mx-auto bg-white p-8 md:p-10 rounded-2xl shadow-xl border border-gray-100 flex flex-col items-center mt-10">
+        <div className="w-16 h-16 bg-blue-100 text-blue-900 rounded-full flex items-center justify-center mb-6">
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" /></svg>
+        </div>
+        <h2 className="text-2xl font-bold text-blue-950 mb-2 text-center">Acceso Evaluador</h2>
+        <p className="text-gray-500 text-center mb-6 text-sm">Debes iniciar sesión para evaluar el póster: <strong className="text-blue-900">{codigoQR || 'General'}</strong></p>
+        
+        {loginError && <div className="w-full p-3 mb-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm text-center">{loginError}</div>}
+        
+        <form onSubmit={handleLoginInline} className="w-full space-y-4">
+          <input type="text" placeholder="Número de Documento" required value={loginForm.documento} onChange={e => setLoginForm({...loginForm, documento: e.target.value})} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none" />
+          <input type="password" placeholder="PIN de Acceso" required value={loginForm.pin} onChange={e => setLoginForm({...loginForm, pin: e.target.value})} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none tracking-widest text-lg font-mono" maxLength="4" />
+          <button type="submit" disabled={loginCargando} className="w-full py-3.5 bg-blue-900 text-white rounded-xl font-bold shadow-md transition-colors disabled:opacity-50">{loginCargando ? 'Verificando...' : 'Entrar y Evaluar'}</button>
+        </form>
+      </div>
+    );
+  }
+
+  // SI YA ESTÁ LOGUEADO, MUESTRA LA RÚBRICA
   return (
     <div className="max-w-4xl mx-auto bg-white p-6 md:p-10 rounded-2xl shadow-xl border border-gray-100">
       <h2 className="text-3xl md:text-4xl font-bold text-blue-950 mb-4 text-center">Rúbrica de Evaluación</h2>
@@ -156,9 +165,7 @@ function EvaluationPage() {
       </p>
 
       {mensaje.texto && (
-        <div className={`p-4 mb-8 rounded-lg font-medium text-center ${
-          mensaje.tipo === 'exito' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-        }`}>
+        <div className={`p-4 mb-8 rounded-lg font-medium text-center ${mensaje.tipo === 'exito' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           {mensaje.texto}
         </div>
       )}
@@ -185,28 +192,12 @@ function EvaluationPage() {
             
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">4. Código del poster</label>
-              <input 
-                type="text" 
-                name="codigo_poster" 
-                required 
-                value={formData.codigo_poster} 
-                onChange={handleCodigoChange} 
-                placeholder={cargandoDatos ? "Conectando al servidor..." : "Escriba el código numérico de la ponencia"} 
-                disabled={cargandoDatos}
-                className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:ring-blue-900 outline-none font-mono font-bold text-blue-900 ${cargandoDatos ? 'bg-gray-100 border-gray-200 cursor-wait' : 'border-gray-300'}`} 
-              />
+              <input type="text" name="codigo_poster" required value={formData.codigo_poster} onChange={handleCodigoChange} placeholder={cargandoDatos ? "Conectando al servidor..." : "Escriba el código numérico de la ponencia"} disabled={cargandoDatos} className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:ring-blue-900 outline-none font-mono font-bold text-blue-900 ${cargandoDatos ? 'bg-gray-100 border-gray-200 cursor-wait' : 'border-gray-300'}`} />
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">5. Título del poster</label>
-              <input 
-                type="text" 
-                name="titulo_poster" 
-                readOnly 
-                value={formData.titulo_poster} 
-                placeholder="El título aparecerá automáticamente al ingresar un código válido"
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100 text-gray-600 outline-none cursor-not-allowed" 
-              />
+              <input type="text" name="titulo_poster" readOnly value={formData.titulo_poster} placeholder="El título aparecerá automáticamente al ingresar un código válido" className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100 text-gray-600 outline-none cursor-not-allowed" />
             </div>
           </div>
         </div>
@@ -225,11 +216,7 @@ function EvaluationPage() {
 
           <div className="hidden md:flex justify-end px-10 mb-2">
             <div className="w-1/2 flex justify-between text-sm font-semibold text-gray-400">
-              <span>10 puntos</span>
-              <span>20 puntos</span>
-              <span>30 puntos</span>
-              <span>40 puntos</span>
-              <span>50 puntos</span>
+              <span>10 puntos</span><span>20 puntos</span><span>30 puntos</span><span>40 puntos</span><span>50 puntos</span>
             </div>
           </div>
 

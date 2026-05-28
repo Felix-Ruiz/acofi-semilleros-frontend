@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
-import { useNavigate } from 'react-router-dom';
 
 const API_URL = "https://acofi-backend.onrender.com";
 
 function AdminPanel() {
-  const navigate = useNavigate();
+  const [autorizado, setAutorizado] = useState(false);
   const [ponencias, setPonencias] = useState([]);
   const [estudiantes, setEstudiantes] = useState([]);
   const [evaluadores, setEvaluadores] = useState([]);
@@ -36,17 +35,16 @@ function AdminPanel() {
   const ciudadesColombia = ['Arauca', 'Armenia', 'Barranquilla', 'Bogotá D.C.', 'Bucaramanga', 'Cali', 'Cartagena de Indias', 'Cúcuta', 'Florencia', 'Ibagué', 'Inírida', 'Leticia', 'Manizales', 'Medellín', 'Mitú', 'Mocoa', 'Montería', 'Neiva', 'Pasto', 'Pereira', 'Popayán', 'Puerto Carreño', 'Quibdó', 'Riohacha', 'San Andrés', 'San José del Guaviare', 'Santa Marta', 'Sincelejo', 'Tunja', 'Valledupar', 'Villavicencio', 'Yopal'];
   const eventosDisponibles = [{ id: 1, nombre: "Barranquilla, Atlántico" }, { id: 2, nombre: "Bogotá, Distrito Capital" }, { id: 3, nombre: "Pereira, Risaralda" }];
 
-  // GUARDIÁN DE RUTA SEGURO
+  // ⚠️ SEGURIDAD CRÍTICA: Bloquea a los curiosos al instante
   useEffect(() => {
-    const tipoUsuario = localStorage.getItem('usuario_tipo');
-    if (tipoUsuario !== 'admin') {
-      navigate('/login');
+    if (localStorage.getItem('usuario_tipo') !== 'admin') {
+      window.location.href = '/login'; 
       return;
     }
-    
+    setAutorizado(true);
     if (vistaActual !== 'qr') cargarDatos();
     else setCargando(false);
-  }, [vistaActual, navigate]);
+  }, [vistaActual]);
 
   const cargarDatos = async () => {
     try {
@@ -84,7 +82,7 @@ function AdminPanel() {
   };
 
   const borrarTodos = async (entidad) => {
-    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?\n\nEsta acción borrará recursos físicos de Cloudinary. NO SE PUEDE DESHACER.`);
+    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?`);
     if (!confirmacion) return;
     
     const confirmacion2 = window.prompt(`Para confirmar, escribe exactamente la palabra "ELIMINAR"`);
@@ -162,34 +160,11 @@ function AdminPanel() {
     setModalEntidad(entidad);
     setIdSeleccionado(item.id);
     if (entidad === 'ponencia') {
-      setFormPonencia({
-        titulo: item.titulo,
-        estudiante_nombre: item.estudiante_nombre,
-        estudiante_documento: item.estudiante_documento,
-        estudiante_institucion: item.estudiante_institucion,
-        estudiante_correo: item.estudiante_correo,
-        estudiante_ciudad: item.estudiante_ciudad,
-        estudiante_cargo: item.estudiante_cargo
-      });
+      setFormPonencia({ titulo: item.titulo, estudiante_nombre: item.estudiante_nombre, estudiante_documento: item.estudiante_documento, estudiante_institucion: item.estudiante_institucion, estudiante_correo: item.estudiante_correo, estudiante_ciudad: item.estudiante_ciudad, estudiante_cargo: item.estudiante_cargo });
     } else if (entidad === 'estudiante') {
-      setFormEstudiante({
-        nombres_apellidos: item.nombres_apellidos,
-        documento_identidad: item.documento_identidad,
-        institucion: item.institucion,
-        correo: item.correo,
-        ciudad: item.ciudad,
-        cargo: item.cargo,
-        nombre_trabajo: item.nombre_trabajo
-      });
+      setFormEstudiante({ nombres_apellidos: item.nombres_apellidos, documento_identidad: item.documento_identidad, institucion: item.institucion, correo: item.correo, ciudad: item.ciudad, cargo: item.cargo, nombre_trabajo: item.nombre_trabajo });
     } else {
-      setFormEvaluador({
-        nombres_apellidos: item.nombres_apellidos,
-        documento_identidad: item.documento_identidad,
-        institucion: item.institucion,
-        correo: item.correo,
-        cargo: item.cargo,
-        evento_id: String(item.evento_id)
-      });
+      setFormEvaluador({ nombres_apellidos: item.nombres_apellidos, documento_identidad: item.documento_identidad, institucion: item.institucion, correo: item.correo, cargo: item.cargo, evento_id: String(item.evento_id) });
     }
     setModalAbierto(true);
   };
@@ -210,9 +185,7 @@ function AdminPanel() {
     try {
       if (modalModo === 'crear') {
         const respuesta = await axios.post(urlBase, payload);
-        const textoExito = respuesta.data.pin 
-          ? `${respuesta.data.mensaje} | PIN DE ACCESO: ${respuesta.data.pin}` 
-          : respuesta.data.mensaje || 'Registro creado exitosamente.';
+        const textoExito = respuesta.data.pin ? `${respuesta.data.mensaje} | PIN DE ACCESO: ${respuesta.data.pin}` : respuesta.data.mensaje || 'Registro creado exitosamente.';
         setMensaje({ tipo: 'exito', texto: textoExito });
       } else {
         await axios.put(`${urlBase}/${idSeleccionado}`, payload);
@@ -236,7 +209,7 @@ function AdminPanel() {
     formData.append('file', file);
     
     setProcesandoAccion(true);
-    setMensaje({ tipo: '', texto: 'Procesando archivo fila por fila... Por favor espere, esto puede tardar un minuto.' });
+    setMensaje({ tipo: '', texto: 'Procesando archivo masivo... Esto garantizará que se guarden todos los estudiantes sin omitir a ninguno.' });
     try {
       await axios.post(`${API_URL}/api/admin/cargar_excel`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -303,24 +276,17 @@ function AdminPanel() {
   const totalAsistentes = estudiantes.filter(e => e.asistencia).length;
   const porcentajeAsistencia = estudiantes.length > 0 ? Math.round((totalAsistentes / estudiantes.length) * 100) : 0;
 
+  if (!autorizado) return null; // Si no es admin, pantalla en blanco y expulsión
+
   return (
     <div className="max-w-7xl mx-auto bg-white p-4 md:p-10 rounded-2xl shadow-xl border border-gray-100 w-full overflow-hidden">
-      
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b pb-4 gap-4">
         <div className="flex flex-col items-center md:items-start gap-2">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-800 text-center md:text-left">Panel de Administración</h2>
-          <button 
-            onClick={toggleInscripciones}
-            className={`px-3 py-1 rounded-full font-bold text-xs shadow-xs transition-colors border ${
-              registroAbierto 
-                ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-            }`}
-          >
+          <button onClick={toggleInscripciones} className={`px-3 py-1 rounded-full font-bold text-xs shadow-xs transition-colors border ${registroAbierto ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>
             Inscripciones Estudiantes: {registroAbierto ? '🟢 ABIERTAS' : '🔴 CERRADAS'}
           </button>
         </div>
-
         <div className="flex flex-wrap gap-2 justify-center">
           <label className={`px-3 py-2 text-white text-xs md:text-sm rounded-lg font-medium transition-colors cursor-pointer ${procesandoAccion ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
             {procesandoAccion ? 'Procesando...' : 'Subir Excel'}
@@ -333,9 +299,7 @@ function AdminPanel() {
         </div>
       </div>
 
-      {mensaje.texto && (
-        <div className={`p-4 mb-6 rounded-lg font-medium text-center text-sm md:text-base ${mensaje.tipo === 'exito' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{mensaje.texto}</div>
-      )}
+      {mensaje.texto && <div className={`p-4 mb-6 rounded-lg font-medium text-center text-sm md:text-base ${mensaje.tipo === 'exito' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{mensaje.texto}</div>}
 
       <div className="flex flex-col lg:flex-row justify-between items-center gap-4 mb-6 border-b pb-4">
         <div className="flex flex-wrap gap-2 justify-center w-full lg:w-auto">
@@ -375,7 +339,6 @@ function AdminPanel() {
       ) : (
         <div className="w-full overflow-x-auto pb-4">
           
-          {/* VISTA PONENCIAS */}
           {vistaActual === 'ponencias' && (
             <table className="w-full text-left border-collapse min-w-200">
               <thead>
@@ -405,7 +368,6 @@ function AdminPanel() {
             </table>
           )}
 
-          {/* VISTA ESTUDIANTES */}
           {vistaActual === 'estudiantes' && (
             <table className="w-full text-left border-collapse min-w-200">
               <thead>
@@ -435,7 +397,6 @@ function AdminPanel() {
             </table>
           )}
 
-          {/* VISTA ASISTENCIA */}
           {vistaActual === 'asistencia' && (
             <div className="bg-white">
               <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
@@ -474,10 +435,7 @@ function AdminPanel() {
                       <td className="p-4"><span className="text-gray-700 font-mono">{e.documento_identidad}</span></td>
                       <td className="p-4"><p className="text-gray-800">{e.institucion}</p></td>
                       <td className="p-4 text-center">
-                        <button 
-                          onClick={() => toggleAsistencia(e.id, e.asistencia)}
-                          className={`w-12 h-6 rounded-full relative transition-colors duration-300 focus:outline-none shadow-inner ${e.asistencia ? 'bg-teal-500' : 'bg-gray-300'}`}
-                        >
+                        <button onClick={() => toggleAsistencia(e.id, e.asistencia)} className={`w-12 h-6 rounded-full relative transition-colors duration-300 focus:outline-none shadow-inner ${e.asistencia ? 'bg-teal-500' : 'bg-gray-300'}`}>
                           <span className={`absolute top-1/2 -translate-y-1/2 left-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-300 ${e.asistencia ? 'translate-x-6' : 'translate-x-0'}`}></span>
                         </button>
                         <p className={`text-xs mt-1 font-bold ${e.asistencia ? 'text-teal-600' : 'text-gray-400'}`}>{e.asistencia ? 'PRESENTE' : 'AUSENTE'}</p>
@@ -489,7 +447,6 @@ function AdminPanel() {
             </div>
           )}
 
-          {/* VISTA EVALUADORES */}
           {vistaActual === 'evaluadores' && (
             <table className="w-full text-left border-collapse min-w-200">
               <thead>
@@ -516,7 +473,6 @@ function AdminPanel() {
             </table>
           )}
 
-          {/* RANKING */}
           {vistaActual === 'ranking' && (
             <table className="w-full text-left border-collapse min-w-175">
               <thead>
@@ -553,7 +509,6 @@ function AdminPanel() {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMACIÓN */}
       {modalConfirmacion.abierto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
           <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 border-t-4 border-red-600 text-center">
@@ -567,7 +522,6 @@ function AdminPanel() {
         </div>
       )}
 
-      {/* MODAL EDITAR */}
       {modalAbierto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-xs">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 md:p-8 border max-h-[90vh] overflow-y-auto">
@@ -624,11 +578,7 @@ function AdminPanel() {
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Cargo</label>
-                      <select required value={formEstudiante.cargo} onChange={(e) => setFormEstudiante({...formEstudiante, cargo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white">
-                        <option value="Lider de semillero">Lider de semillero</option>
-                        <option value="Estudiante 1">Estudiante 1</option>
-                        <option value="Estudiante 2">Estudiante 2</option>
-                      </select>
+                      <input type="text" required placeholder="Ej: Estudiante 1, Ponente..." value={formEstudiante.cargo} onChange={(e) => setFormEstudiante({...formEstudiante, cargo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white" />
                     </div>
                   </div>
                   <div>
@@ -683,7 +633,6 @@ function AdminPanel() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

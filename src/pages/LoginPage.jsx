@@ -1,15 +1,13 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const API_URL = "https://acofi-backend.onrender.com";
 
 function LoginPage() {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({ documento: '', pin: '', correo: '', password: '' });
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
-  const [esAdmin, setEsAdmin] = useState(false); 
+  const [esAdmin, setEsAdmin] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -23,7 +21,6 @@ function LoginPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/login`, formData);
       
-      // Guardamos la sesión
       localStorage.setItem('usuario_logueado', 'true');
       localStorage.setItem('usuario_nombre', respuesta.data.nombre);
       localStorage.setItem('usuario_tipo', respuesta.data.tipo_usuario);
@@ -31,18 +28,17 @@ function LoginPage() {
       localStorage.setItem('usuario_documento', formData.documento || ''); 
       localStorage.setItem('usuario_correo', respuesta.data.correo || ''); 
       
-      // Rescatamos el ticket del QR si existe
-      const qrPendiente = localStorage.getItem('url_post_login');
+      const qrPendiente = localStorage.getItem('qr_pending_route');
 
       if (qrPendiente) {
-        localStorage.removeItem('url_post_login');
-        navigate(qrPendiente); // Redirección nativa y suave al QR
+        localStorage.removeItem('qr_pending_route');
+        window.location.href = qrPendiente; 
       } else if (respuesta.data.tipo_usuario === 'admin') {
-        navigate('/admin'); // Redirección nativa y suave al Panel de Admin
+        window.location.href = '/admin'; 
       } else if (respuesta.data.tipo_usuario === 'estudiante') {
-        navigate('/mi-ponencia');
+        window.location.href = '/mi-ponencia';
       } else {
-        navigate('/escanear'); 
+        window.location.href = '/'; 
       }
     } catch (error) {
       setMensaje({ 
