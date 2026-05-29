@@ -5,7 +5,6 @@ import { QRCodeSVG } from 'qrcode.react';
 const API_URL = "https://acofi-backend.onrender.com";
 
 function AdminPanel() {
-  const [autorizado, setAutorizado] = useState(false);
   const [ponencias, setPonencias] = useState([]);
   const [estudiantes, setEstudiantes] = useState([]);
   const [evaluadores, setEvaluadores] = useState([]);
@@ -28,7 +27,7 @@ function AdminPanel() {
   const [idSeleccionado, setIdSeleccionado] = useState(null);
   const [modalConfirmacion, setModalConfirmacion] = useState({ abierto: false, entidad: '', id: null });
 
-  // ⚠️ NUEVO: Estados para el Modal de Asignar Ponencias a Evaluadores
+  // Estados para el Modal de Asignar Ponencias a Evaluadores
   const [modalAsignarAbierto, setModalAsignarAbierto] = useState(false);
   const [evaluadorAAsignar, setEvaluadorAAsignar] = useState(null);
   const [ponenciasSeleccionadas, setPonenciasSeleccionadas] = useState([]);
@@ -40,17 +39,6 @@ function AdminPanel() {
   const urlRegistroEvaluador = `${window.location.origin}/registro-evaluador`;
   const ciudadesColombia = ['Arauca', 'Armenia', 'Barranquilla', 'Bogotá D.C.', 'Bucaramanga', 'Cali', 'Cartagena de Indias', 'Cúcuta', 'Florencia', 'Ibagué', 'Inírida', 'Leticia', 'Manizales', 'Medellín', 'Mitú', 'Mocoa', 'Montería', 'Neiva', 'Pasto', 'Pereira', 'Popayán', 'Puerto Carreño', 'Quibdó', 'Riohacha', 'San Andrés', 'San José del Guaviare', 'Santa Marta', 'Sincelejo', 'Tunja', 'Valledupar', 'Villavicencio', 'Yopal'];
   const eventosDisponibles = [{ id: 1, nombre: "Barranquilla, Atlántico" }, { id: 2, nombre: "Bogotá, Distrito Capital" }, { id: 3, nombre: "Pereira, Risaralda" }];
-
-  // ⚠️ SEGURIDAD: Expulsar si no es admin (soluciona la fuga de seguridad visual)
-  useEffect(() => {
-    if (localStorage.getItem('usuario_tipo') !== 'admin') {
-      window.location.href = '/login'; 
-      return;
-    }
-    setAutorizado(true);
-    if (vistaActual !== 'qr') cargarDatos();
-    else setCargando(false);
-  }, [vistaActual]);
 
   const cargarDatos = async () => {
     try {
@@ -76,6 +64,12 @@ function AdminPanel() {
       setCargando(false);
     }
   };
+
+  // ⚠️ SOLUCIÓN: Carga de datos original, limpia y sin bloqueos de redirección
+  useEffect(() => {
+    if (vistaActual !== 'qr') cargarDatos();
+    else setCargando(false);
+  }, [vistaActual]);
 
   const toggleInscripciones = async () => {
     try {
@@ -286,12 +280,10 @@ function AdminPanel() {
     }
   };
 
-  // ⚠️ NUEVAS FUNCIONES PARA ASIGNAR PONENCIAS
   const abrirAsignacion = async (evaluador) => {
     setEvaluadorAAsignar(evaluador);
     setPonenciasSeleccionadas(evaluador.ponencias_asignadas || []); 
     setModalAsignarAbierto(true);
-    // Cargamos ponencias aprobadas para mostrarlas en el modal
     if (ponencias.length === 0) {
       const res = await axios.get(`${API_URL}/api/admin/ponencias`);
       setPonencias(res.data.filter(p => p.estado === 'aceptada'));
@@ -341,12 +333,10 @@ function AdminPanel() {
   const totalAsistentes = estudiantes.filter(e => e.asistencia).length;
   const porcentajeAsistencia = estudiantes.length > 0 ? Math.round((totalAsistentes / estudiantes.length) * 100) : 0;
 
-  if (!autorizado) return null;
-
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden w-full font-sans">
       
-      {/* ⚠️ SIDEBAR LATERAL PROFESIONAL */}
+      {/* SIDEBAR LATERAL PROFESIONAL */}
       <div className="w-64 bg-blue-950 text-white flex flex-col shadow-2xl z-20 shrink-0">
         <div className="p-6 border-b border-blue-900">
           <h2 className="text-2xl font-bold tracking-wider">ADMIN ACOFI</h2>
@@ -385,7 +375,7 @@ function AdminPanel() {
       {/* ÁREA PRINCIPAL */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         
-        {/* ⚠️ HEADER SUPERIOR CON MENÚ DESPLEGABLE DE DESCARGAS */}
+        {/* HEADER SUPERIOR CON MENÚ DESPLEGABLE DE DESCARGAS */}
         <header className="bg-white border-b border-gray-200 px-8 py-5 flex flex-col md:flex-row justify-between items-center z-10 shadow-sm gap-4">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold text-gray-800 capitalize">Gestión de {vistaActual}</h1>
@@ -395,13 +385,11 @@ function AdminPanel() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Botón de Excel Subir */}
             <label className={`px-4 py-2 text-white text-sm rounded-lg font-bold transition-colors cursor-pointer shadow-md flex items-center gap-2 ${procesandoAccion ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
               📁 Subir Excel DB
               <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={cargarExcel} disabled={procesandoAccion} />
             </label>
 
-            {/* Menú Desplegable (Dropdown) Elegante */}
             <div className="relative group">
               <button className="px-4 py-2 bg-emerald-600 text-white font-bold text-sm rounded-lg hover:bg-emerald-700 shadow-md flex items-center gap-2">
                 📥 Descargar Reportes <span>▼</span>
@@ -458,7 +446,7 @@ function AdminPanel() {
           ) : (
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
               
-              {/* ⚠️ VISTA PONENCIAS: ENUMERADA */}
+              {/* TABLAS ENUMERADAS */}
               {vistaActual === 'ponencias' && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-800px">
@@ -492,7 +480,6 @@ function AdminPanel() {
                 </div>
               )}
 
-              {/* ⚠️ VISTA ESTUDIANTES: ENUMERADA */}
               {vistaActual === 'estudiantes' && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-800px">
@@ -525,7 +512,6 @@ function AdminPanel() {
                 </div>
               )}
 
-              {/* ⚠️ VISTA ASISTENCIA: ENUMERADA */}
               {vistaActual === 'asistencia' && (
                 <div>
                   <div className="bg-gray-50 px-6 py-5 border-b border-gray-200 flex flex-wrap gap-8 justify-center md:justify-start">
@@ -565,7 +551,6 @@ function AdminPanel() {
                 </div>
               )}
 
-              {/* ⚠️ VISTA EVALUADORES: CON BOTÓN DE ASIGNAR */}
               {vistaActual === 'evaluadores' && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-800px">
@@ -592,7 +577,6 @@ function AdminPanel() {
                         <td className="p-4 text-center space-y-1.5">
                           <button onClick={() => abrirAsignacion(e)} className="block w-full px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors">🎯 Asignar Ponencias</button>
                           <button onClick={() => abrirEditarModal('evaluador', e)} className="block w-full px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-bold transition-colors">Editar</button>
-                          <button onClick={() => solicitarEliminacion('evaluadores', e.id)} className="block w-full px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold transition-colors">Eliminar</button>
                         </td>
                       </tr>
                     ))}
@@ -601,7 +585,6 @@ function AdminPanel() {
                 </div>
               )}
 
-              {/* ⚠️ RANKING CON VISIBILIDAD DE EVALUADORES */}
               {vistaActual === 'ranking' && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-800px">
@@ -652,7 +635,7 @@ function AdminPanel() {
         </main>
       </div>
 
-      {/* ⚠️ NUEVO: MODAL DE ASIGNACIÓN DE PONENCIAS */}
+      {/* MODAL DE ASIGNACIÓN DE PONENCIAS */}
       {modalAsignarAbierto && evaluadorAAsignar && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl p-6 md:p-8 flex flex-col max-h-[90vh]">
