@@ -4,7 +4,7 @@ import RegistrationPage from './pages/RegistrationPage';
 import AdminPanel from './pages/AdminPanel';
 import EvaluatorRegistration from './pages/EvaluatorRegistration';
 import EvaluationPage from './pages/EvaluationPage';
-import ScannerPage from './pages/ScannerPage';
+import ScannerPage from './pages/ScannerDashboard';
 import LoginPage from './pages/LoginPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import StudentDashboard from './pages/StudentDashboard'; // Nueva importación
