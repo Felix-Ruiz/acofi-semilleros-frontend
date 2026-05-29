@@ -1,8 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const API_URL = "https://acofi-backend.onrender.com";
+
+// ⚠️ FUNCIÓN PARA LIMPIAR LA PALABRA 'LOGIN' O URLS RARAS DEL ESCÁNER
+const extraerCodigoLimpio = (textoRaw) => {
+  if (!textoRaw) return '';
+  const str = String(textoRaw);
+  // Busca el patrón "evaluar/" seguido de números y toma solo los números.
+  const match = str.match(/evaluar\/(\d+)/);
+  if (match) return match[1];
+  // Si no está ese patrón, y son solo números, retorna eso
+  if (/^\d+$/.test(str)) return str;
+  return str; // Fallback
+};
 
 function EvaluationPage() {
   const { codigoQR } = useParams(); 
@@ -19,7 +31,7 @@ function EvaluationPage() {
     documento_evaluador: localStorage.getItem('usuario_documento') || '',
     correo_evaluador: localStorage.getItem('usuario_correo') || '', 
     titulo_poster: '',
-    codigo_poster: codigoQR || '',
+    codigo_poster: extraerCodigoLimpio(codigoQR),
     respuestas: { q6: '', q7: '', q8: '', q9: '', q10: '' },
     comentarios: ''
   });
@@ -57,16 +69,18 @@ function EvaluationPage() {
   useEffect(() => {
     if (!usuarioLogueado) return; 
 
+    // Velocidad Frontend: Hacemos la carga asíncrona sin bloquear render principal
     const cargarPonencias = async () => {
       try {
         const respuesta = await axios.get(`${API_URL}/api/admin/ponencias`);
         const aprobadas = respuesta.data.filter(p => p.estado === 'aceptada');
         setPonencias(aprobadas);
 
-        if (codigoQR) {
-          const ponenciaEncontrada = aprobadas.find(p => p.codigo === codigoQR);
+        const codigoLimpiado = extraerCodigoLimpio(codigoQR);
+        if (codigoLimpiado) {
+          const ponenciaEncontrada = aprobadas.find(p => p.codigo === codigoLimpiado);
           if (ponenciaEncontrada) {
-            setFormData(prev => ({ ...prev, titulo_poster: ponenciaEncontrada.titulo }));
+            setFormData(prev => ({ ...prev, titulo_poster: ponenciaEncontrada.titulo, codigo_poster: codigoLimpiado }));
           }
         }
       } catch (error) {
@@ -79,7 +93,8 @@ function EvaluationPage() {
   }, [codigoQR, usuarioLogueado]);
 
   const handleCodigoChange = (e) => {
-    const codigoIngresado = e.target.value;
+    // ⚠️ Limpieza dinámica mientras escribe/pega el escaner
+    const codigoIngresado = extraerCodigoLimpio(e.target.value);
     let tituloEncontrado = '';
     const ponenciaEncontrada = ponencias.find(p => p.codigo === codigoIngresado);
     if (ponenciaEncontrada) tituloEncontrado = ponenciaEncontrada.titulo;
@@ -109,7 +124,7 @@ function EvaluationPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/evaluaciones/calificar`, payload);
       setMensaje({ tipo: 'exito', texto: respuesta.data.mensaje });
-      setTimeout(() => navigate('/'), 3000); 
+      setTimeout(() => navigate('/escanear'), 3000); 
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al enviar evaluación.' });
     } finally {
@@ -117,7 +132,8 @@ function EvaluationPage() {
     }
   };
 
-  const FilaRubrica = ({ num, titulo, descripcion, stateKey }) => (
+  // Optimización Frontend: Memoriza la fila de rúbrica para evitar re-renderizados pesados
+  const FilaRubrica = useMemo(() => ({ num, titulo, descripcion, stateKey }) => (
     <div className="flex flex-col md:flex-row items-center border-b border-gray-100 py-6 hover:bg-gray-50 transition-colors rounded-lg px-2">
       <div className="w-full md:w-1/2 mb-4 md:mb-0 pr-4">
         <h4 className="text-lg font-semibold text-blue-900 mb-1">{num}. {titulo}</h4>
@@ -132,7 +148,7 @@ function EvaluationPage() {
         ))}
       </div>
     </div>
-  );
+  ), [formData.respuestas]);
 
   if (!usuarioLogueado) {
     return (
@@ -141,7 +157,7 @@ function EvaluationPage() {
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" /></svg>
         </div>
         <h2 className="text-2xl font-bold text-blue-950 mb-2 text-center">Acceso Evaluador</h2>
-        <p className="text-gray-500 text-center mb-6 text-sm">Debes iniciar sesión para evaluar el póster: <strong className="text-blue-900">{codigoQR || 'General'}</strong></p>
+        <p className="text-gray-500 text-center mb-6 text-sm">Debes iniciar sesión para evaluar el póster: <strong className="text-blue-900">{extraerCodigoLimpio(codigoQR) || 'General'}</strong></p>
         
         {loginError && <div className="w-full p-3 mb-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm text-center">{loginError}</div>}
         
@@ -171,7 +187,7 @@ function EvaluationPage() {
         <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-6">
           <h3 className="text-xl font-bold text-gray-800 border-b pb-2 flex justify-between items-center">
             Datos de Identificación
-            {cargandoDatos && <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded animate-pulse">Sincronizando servidor...</span>}
+            {cargandoDatos && <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded animate-pulse">Sincronizando...</span>}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -205,7 +221,7 @@ function EvaluationPage() {
             <ul className="space-y-2 text-sm text-gray-700">
               <li><strong className="text-blue-900">(10 puntos)</strong> Se recomienda replantear con acompañamiento del tutor.</li>
               <li><strong className="text-blue-900">(20 puntos)</strong> Propuesta con debilidades que requieren ajustes conceptuales o metodológicos.</li>
-              <li><strong className="text-blue-900">(30 puntos)</strong> Buena propuesta con elements para afinar o profundizar.</li>
+              <li><strong className="text-blue-900">(30 puntos)</strong> Buena propuesta con elementos para afinar o profundizar.</li>
               <li><strong className="text-blue-900">(40 puntos)</strong> Propuesta sólida y bien estructurada pero puede mejorar.</li>
               <li><strong className="text-blue-900">(50 puntos)</strong> Excelente base para continuar el proceso investigativo.</li>
             </ul>

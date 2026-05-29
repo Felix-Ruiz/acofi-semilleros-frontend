@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 const API_URL = "https://acofi-backend.onrender.com";
 
 function AdminPanel() {
+  const [autorizado, setAutorizado] = useState(false);
   const [ponencias, setPonencias] = useState([]);
   const [estudiantes, setEstudiantes] = useState([]);
   const [evaluadores, setEvaluadores] = useState([]);
@@ -20,11 +21,17 @@ function AdminPanel() {
   
   const [registroAbierto, setRegistroAbierto] = useState(true);
 
+  // Estados modales
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modalModo, setModalModo] = useState('crear');
   const [modalEntidad, setModalEntidad] = useState('ponencia');
   const [idSeleccionado, setIdSeleccionado] = useState(null);
   const [modalConfirmacion, setModalConfirmacion] = useState({ abierto: false, entidad: '', id: null });
+  
+  // Modal de asignaciones
+  const [modalAsignarAbierto, setModalAsignarAbierto] = useState(false);
+  const [evaluadorAAsignar, setEvaluadorAAsignar] = useState(null);
+  const [ponenciasSeleccionadas, setPonenciasSeleccionadas] = useState([]);
 
   const [formPonencia, setFormPonencia] = useState({ titulo: '', estudiante_nombre: '', estudiante_documento: '', estudiante_institucion: '', estudiante_correo: '', estudiante_ciudad: '', estudiante_cargo: '' });
   const [formEvaluador, setFormEvaluador] = useState({ nombres_apellidos: '', documento_identidad: '', institucion: '', correo: '', cargo: '', evento_id: '1' });
@@ -34,9 +41,20 @@ function AdminPanel() {
   const ciudadesColombia = ['Arauca', 'Armenia', 'Barranquilla', 'Bogotá D.C.', 'Bucaramanga', 'Cali', 'Cartagena de Indias', 'Cúcuta', 'Florencia', 'Ibagué', 'Inírida', 'Leticia', 'Manizales', 'Medellín', 'Mitú', 'Mocoa', 'Montería', 'Neiva', 'Pasto', 'Pereira', 'Popayán', 'Puerto Carreño', 'Quibdó', 'Riohacha', 'San Andrés', 'San José del Guaviare', 'Santa Marta', 'Sincelejo', 'Tunja', 'Valledupar', 'Villavicencio', 'Yopal'];
   const eventosDisponibles = [{ id: 1, nombre: "Barranquilla, Atlántico" }, { id: 2, nombre: "Bogotá, Distrito Capital" }, { id: 3, nombre: "Pereira, Risaralda" }];
 
+  useEffect(() => {
+    if (localStorage.getItem('usuario_tipo') !== 'admin') {
+      window.location.href = '/login'; 
+      return;
+    }
+    setAutorizado(true);
+    if (vistaActual !== 'qr') cargarDatos();
+    else setCargando(false);
+  }, [vistaActual]);
+
   const cargarDatos = async () => {
     try {
       setCargando(true);
+      // Solo carga la data de la vista actual para hacer el frontend ultra rápido
       if (vistaActual === 'ponencias') {
         const res = await axios.get(`${API_URL}/api/admin/ponencias`);
         setPonencias(res.data);
@@ -59,11 +77,6 @@ function AdminPanel() {
     }
   };
 
-  useEffect(() => {
-    if (vistaActual !== 'qr') cargarDatos();
-    else setCargando(false);
-  }, [vistaActual]);
-
   const toggleInscripciones = async () => {
     try {
       const res = await axios.post(`${API_URL}/api/admin/configuracion/toggle`);
@@ -75,14 +88,11 @@ function AdminPanel() {
   };
 
   const borrarTodos = async (entidad) => {
-    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?\n\nEsta acción borrará recursos físicos de Cloudinary. NO SE PUEDE DESHACER.`);
+    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?`);
     if (!confirmacion) return;
     
     const confirmacion2 = window.prompt(`Para confirmar, escribe exactamente la palabra "ELIMINAR"`);
-    if (confirmacion2 !== "ELIMINAR") {
-        setMensaje({ tipo: 'error', texto: 'Operación cancelada.' });
-        return;
-    }
+    if (confirmacion2 !== "ELIMINAR") return;
 
     setProcesandoAccion(true);
     setMensaje({ tipo: '', texto: `Vaciando registros masivos...` });
@@ -115,7 +125,7 @@ function AdminPanel() {
       await axios.put(`${API_URL}/api/admin/estudiantes/${id}/asistencia`, { asistencia: nuevoEstado });
     } catch (error) {
       setEstudiantes(estudiantes.map(e => e.id === id ? { ...e, asistencia: estadoActual } : e));
-      setMensaje({ tipo: 'error', texto: 'Error al guardar la asistencia en la base de datos.' });
+      setMensaje({ tipo: 'error', texto: 'Error al guardar la asistencia.' });
     }
   };
 
@@ -126,7 +136,6 @@ function AdminPanel() {
   const confirmarEliminacion = async () => {
     const { entidad, id } = modalConfirmacion;
     setModalConfirmacion({ abierto: false, entidad: '', id: null });
-    setMensaje({ tipo: '', texto: '' });
     try {
       await axios.delete(`${API_URL}/api/admin/${entidad}/${id}`);
       setMensaje({ tipo: 'exito', texto: 'Registro eliminado con éxito.' });
@@ -153,34 +162,11 @@ function AdminPanel() {
     setModalEntidad(entidad);
     setIdSeleccionado(item.id);
     if (entidad === 'ponencia') {
-      setFormPonencia({
-        titulo: item.titulo,
-        estudiante_nombre: item.estudiante_nombre,
-        estudiante_documento: item.estudiante_documento,
-        estudiante_institucion: item.estudiante_institucion,
-        estudiante_correo: item.estudiante_correo,
-        estudiante_ciudad: item.estudiante_ciudad,
-        estudiante_cargo: item.estudiante_cargo
-      });
+      setFormPonencia({ titulo: item.titulo, estudiante_nombre: item.estudiante_nombre, estudiante_documento: item.estudiante_documento, estudiante_institucion: item.estudiante_institucion, estudiante_correo: item.estudiante_correo, estudiante_ciudad: item.estudiante_ciudad, estudiante_cargo: item.estudiante_cargo });
     } else if (entidad === 'estudiante') {
-      setFormEstudiante({
-        nombres_apellidos: item.nombres_apellidos,
-        documento_identidad: item.documento_identidad,
-        institucion: item.institucion,
-        correo: item.correo,
-        ciudad: item.ciudad,
-        cargo: item.cargo,
-        nombre_trabajo: item.nombre_trabajo
-      });
+      setFormEstudiante({ nombres_apellidos: item.nombres_apellidos, documento_identidad: item.documento_identidad, institucion: item.institucion, correo: item.correo, ciudad: item.ciudad, cargo: item.cargo, nombre_trabajo: item.nombre_trabajo });
     } else {
-      setFormEvaluador({
-        nombres_apellidos: item.nombres_apellidos,
-        documento_identidad: item.documento_identidad,
-        institucion: item.institucion,
-        correo: item.correo,
-        cargo: item.cargo,
-        evento_id: String(item.evento_id)
-      });
+      setFormEvaluador({ nombres_apellidos: item.nombres_apellidos, documento_identidad: item.documento_identidad, institucion: item.institucion, correo: item.correo, cargo: item.cargo, evento_id: String(item.evento_id) });
     }
     setModalAbierto(true);
   };
@@ -201,9 +187,7 @@ function AdminPanel() {
     try {
       if (modalModo === 'crear') {
         const respuesta = await axios.post(urlBase, payload);
-        const textoExito = respuesta.data.pin 
-          ? `${respuesta.data.mensaje} | PIN DE ACCESO: ${respuesta.data.pin}` 
-          : respuesta.data.mensaje || 'Registro creado exitosamente.';
+        const textoExito = respuesta.data.pin ? `${respuesta.data.mensaje} | PIN: ${respuesta.data.pin}` : respuesta.data.mensaje;
         setMensaje({ tipo: 'exito', texto: textoExito });
       } else {
         await axios.put(`${urlBase}/${idSeleccionado}`, payload);
@@ -212,7 +196,7 @@ function AdminPanel() {
       setModalAbierto(false);
       cargarDatos();
     } catch (error) {
-      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Ocurrió un error en la operación.' });
+      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Ocurrió un error.' });
     }
   };
 
@@ -229,9 +213,7 @@ function AdminPanel() {
     setProcesandoAccion(true);
     setMensaje({ tipo: '', texto: 'Procesando archivo masivo... Esto garantizará que se guarden todos los estudiantes sin omitir a ninguno.' });
     try {
-      await axios.post(`${API_URL}/api/admin/cargar_excel`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      await axios.post(`${API_URL}/api/admin/cargar_excel`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       setMensaje({ tipo: 'exito', texto: 'Excel cargado y grupos procesados correctamente.' });
       cargarDatos();
     } catch (error) {
@@ -273,6 +255,40 @@ function AdminPanel() {
     }
   };
 
+  // ⚠️ LÓGICA PARA ASIGNAR PONENCIAS
+  const abrirAsignacion = async (evaluador) => {
+    setEvaluadorAAsignar(evaluador);
+    setPonenciasSeleccionadas(evaluador.ponencias_asignadas || []); // Las que ya tiene
+    setModalAsignarAbierto(true);
+    // Necesitamos cargar ponencias si no están cargadas
+    if (ponencias.length === 0) {
+      const res = await axios.get(`${API_URL}/api/admin/ponencias`);
+      setPonencias(res.data.filter(p => p.estado === 'aceptada'));
+    }
+  };
+
+  const togglePonenciaSeleccionada = (codigo) => {
+    setPonenciasSeleccionadas(prev => 
+      prev.includes(codigo) ? prev.filter(c => c !== codigo) : [...prev, codigo]
+    );
+  };
+
+  const guardarAsignacion = async () => {
+    setProcesandoAccion(true);
+    try {
+      await axios.post(`${API_URL}/api/admin/evaluadores/${evaluadorAAsignar.id}/asignar`, {
+        ponencias_codigos: ponenciasSeleccionadas
+      });
+      setMensaje({ tipo: 'exito', texto: 'Ponencias asignadas y correo enviado exitosamente.' });
+      setModalAsignarAbierto(false);
+      cargarDatos(); // Recargar para mostrar los cambios
+    } catch (error) {
+      setMensaje({ tipo: 'error', texto: 'No se pudo asignar las ponencias.' });
+    } finally {
+      setProcesandoAccion(false);
+    }
+  };
+
   const ponenciasMostradas = ponencias.filter(p => 
     p.titulo.toLowerCase().includes(filtroPonencias.toLowerCase()) ||
     p.estudiante_nombre.toLowerCase().includes(filtroPonencias.toLowerCase()) ||
@@ -294,389 +310,474 @@ function AdminPanel() {
   const totalAsistentes = estudiantes.filter(e => e.asistencia).length;
   const porcentajeAsistencia = estudiantes.length > 0 ? Math.round((totalAsistentes / estudiantes.length) * 100) : 0;
 
+  if (!autorizado) return null;
+
+  // ⚠️ NUEVO REDISEÑO: LAYOUT DE SIDEBAR PROFESIONAL
   return (
-    <div className="max-w-7xl mx-auto bg-white p-4 md:p-10 rounded-2xl shadow-xl border border-gray-100 w-full overflow-hidden">
+    <div className="flex h-screen bg-gray-50 overflow-hidden w-full font-sans">
       
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b pb-4 gap-4">
-        <div className="flex flex-col items-center md:items-start gap-2">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 text-center md:text-left">Panel de Administración</h2>
-          <button 
-            onClick={toggleInscripciones}
-            className={`px-3 py-1 rounded-full font-bold text-xs shadow-xs transition-colors border ${
-              registroAbierto 
-                ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-            }`}
-          >
-            Inscripciones Estudiantes: {registroAbierto ? '🟢 ABIERTAS' : '🔴 CERRADAS'}
+      {/* SIDEBAR LATERAL */}
+      <div className="w-64 bg-blue-950 text-white flex flex-col shadow-2xl z-20 shrink-0">
+        <div className="p-6 border-b border-blue-900">
+          <h2 className="text-2xl font-bold tracking-wider">ADMIN ACOFI</h2>
+          <p className="text-blue-300 text-xs mt-1">Panel de Control General</p>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto py-4">
+          <nav className="space-y-1 px-3">
+            {[
+              { id: 'ponencias', icon: '📄', label: 'Proyectos & QRs' },
+              { id: 'estudiantes', icon: '🎓', label: 'Estudiantes' },
+              { id: 'asistencia', icon: '✅', label: 'Check-in Aforo' },
+              { id: 'evaluadores', icon: '🧑‍🏫', label: 'Evaluadores' },
+              { id: 'ranking', icon: '🏆', label: 'Ranking Oficial' },
+              { id: 'qr', icon: '📲', label: 'QR Portal Evaluador' }
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setVistaActual(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm ${vistaActual === item.id ? 'bg-blue-800 text-white shadow-md' : 'text-blue-200 hover:bg-blue-900 hover:text-white'}`}
+              >
+                <span className="text-lg">{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="p-4 border-t border-blue-900">
+          <button onClick={() => { localStorage.clear(); window.location.href = '/login'; }} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-colors">
+            🚪 Cerrar Sesión
           </button>
         </div>
-
-        <div className="flex flex-wrap gap-2 justify-center">
-          <label className={`px-3 py-2 text-white text-xs md:text-sm rounded-lg font-medium transition-colors cursor-pointer ${procesandoAccion ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
-            {procesandoAccion ? 'Procesando...' : 'Subir Excel'}
-            <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={cargarExcel} disabled={procesandoAccion} />
-          </label>
-          <button onClick={() => descargarExcel('estudiantes')} className="px-3 py-2 bg-green-600 text-white text-xs md:text-sm rounded-lg hover:bg-green-700 font-medium transition-colors">Excel Estudiantes</button>
-          <button onClick={() => descargarExcel('evaluadores')} className="px-3 py-2 bg-green-600 text-white text-xs md:text-sm rounded-lg hover:bg-green-700 font-medium transition-colors">Excel Evaluadores</button>
-          <button onClick={() => descargarExcel('ponencias')} className="px-3 py-2 bg-green-600 text-white text-xs md:text-sm rounded-lg hover:bg-green-700 font-medium transition-colors">Excel Ponencias</button>
-          <button onClick={() => descargarExcel('evaluaciones')} className="px-3 py-2 bg-blue-700 text-white text-xs md:text-sm rounded-lg hover:bg-blue-800 font-bold transition-colors">Resultados Excel</button>
-        </div>
       </div>
 
-      {mensaje.texto && (
-        <div className={`p-4 mb-6 rounded-lg font-medium text-center text-sm md:text-base ${mensaje.tipo === 'exito' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{mensaje.texto}</div>
-      )}
-
-      <div className="flex flex-col lg:flex-row justify-between items-center gap-4 mb-6 border-b pb-4">
-        <div className="flex flex-wrap gap-2 justify-center w-full lg:w-auto">
-          <button onClick={() => setVistaActual('ponencias')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'ponencias' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Ponencias / Grupos</button>
-          <button onClick={() => setVistaActual('estudiantes')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'estudiantes' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Estudiantes</button>
-          <button onClick={() => setVistaActual('asistencia')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'asistencia' ? 'bg-teal-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>✅ Check-in</button>
-          <button onClick={() => setVistaActual('evaluadores')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'evaluadores' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Evaluadores</button>
-          <button onClick={() => setVistaActual('ranking')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'ranking' ? 'bg-amber-500 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Ranking</button>
-          <button onClick={() => setVistaActual('qr')} className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${vistaActual === 'qr' ? 'bg-blue-950 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>QR Evaluadores</button>
-        </div>
-
-        {vistaActual === 'ponencias' && (
-          <div className="flex flex-col md:flex-row gap-2 w-full lg:w-auto">
-            <input type="text" placeholder="Buscar título, integrante, código..." value={filtroPonencias} onChange={(e) => setFiltroPonencias(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64 outline-none focus:ring-2 focus:ring-blue-900" />
-            <button onClick={() => enviarCorreos()} disabled={procesandoAccion} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">✉️ Enviar Todos los QRs</button>
-            <button onClick={() => borrarTodos('ponencias')} disabled={procesandoAccion} className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">🗑️ Borrar Todo</button>
+      {/* ÁREA PRINCIPAL */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        
+        {/* HEADER SUPERIOR */}
+        <header className="bg-white border-b border-gray-200 px-8 py-5 flex flex-col md:flex-row justify-between items-center z-10 shadow-sm gap-4">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold text-gray-800 capitalize">Gestión de {vistaActual}</h1>
+            <button onClick={toggleInscripciones} className={`px-4 py-1.5 rounded-full font-bold text-xs shadow-sm transition-colors border ${registroAbierto ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>
+              Registro: {registroAbierto ? '🟢 ABIERTO' : '🔴 CERRADO'}
+            </button>
           </div>
-        )}
 
-        {(vistaActual === 'estudiantes' || vistaActual === 'asistencia') && (
-          <div className="flex flex-col md:flex-row gap-2 w-full lg:w-auto">
-            <input type="text" placeholder="Buscar estudiante o documento..." value={filtroEstudiantes} onChange={(e) => setFiltroEstudiantes(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64 outline-none focus:ring-2 focus:ring-blue-900" />
+          <div className="flex items-center gap-3">
+            {/* Botón de Excel Oculto */}
+            <label className={`px-4 py-2 text-white text-sm rounded-lg font-bold transition-colors cursor-pointer shadow-md flex items-center gap-2 ${procesandoAccion ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
+              📁 Subir Excel DB
+              <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={cargarExcel} disabled={procesandoAccion} />
+            </label>
+
+            {/* Dropdown Elegante para Descargas */}
+            <div className="relative group">
+              <button className="px-4 py-2 bg-emerald-600 text-white font-bold text-sm rounded-lg hover:bg-emerald-700 shadow-md flex items-center gap-2">
+                📥 Descargar Reportes <span>▼</span>
+              </button>
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all transform origin-top-right z-50">
+                <div className="py-2 flex flex-col">
+                  <button onClick={() => descargarExcel('estudiantes')} className="px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium">Reporte Estudiantes</button>
+                  <button onClick={() => descargarExcel('evaluadores')} className="px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium">Reporte Evaluadores</button>
+                  <button onClick={() => descargarExcel('ponencias')} className="px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium">Reporte Ponencias</button>
+                  <button onClick={() => descargarExcel('evaluaciones')} className="px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium border-t border-gray-100">Resultados Finales</button>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
+        </header>
 
-        {vistaActual === 'evaluadores' && (
-          <div className="flex flex-col md:flex-row gap-2 w-full lg:w-auto">
-            <input type="text" placeholder="Buscar evaluador, documento, correo..." value={filtroEvaluadores} onChange={(e) => setFiltroEvaluadores(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full md:w-64 outline-none focus:ring-2 focus:ring-blue-900" />
-            <button onClick={() => abrirCrearModal('evaluador')} className="px-4 py-2 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">+ Añadir Evaluador</button>
-            <button onClick={() => borrarTodos('evaluadores')} disabled={procesandoAccion} className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-md transition-colors text-sm w-full md:w-auto whitespace-nowrap">🗑️ Borrar Todo</button>
-          </div>
-        )}
-      </div>
-
-      {cargando ? (
-        <div className="text-center py-12"><p className="text-blue-900 font-bold text-lg animate-pulse">Cargando datos del servidor...</p></div>
-      ) : (
-        <div className="w-full overflow-x-auto pb-4">
+        {/* CONTENIDO INTERNO DESLIZABLE */}
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-gray-50">
           
-          {/* VISTA PONENCIAS */}
-          {vistaActual === 'ponencias' && (
-            <table className="w-full text-left border-collapse min-w-200">
-              <thead>
-                <tr className="bg-blue-950 text-white text-sm">
-                  <th className="p-4 font-semibold rounded-tl-xl w-12 text-center">#</th>
-                  <th className="p-4 font-semibold w-1/3">Trabajo</th>
-                  <th className="p-4 font-semibold w-1/4">Integrantes / Institución</th>
-                  <th className="p-4 font-semibold w-1/6">Estado</th>
-                  <th className="p-4 font-semibold w-1/6">Código / QR</th>
-                  <th className="p-4 font-semibold text-center rounded-tr-xl">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ponenciasMostradas.map((p, index) => (
-                  <tr key={p.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors text-sm">
-                    <td className="p-4 text-center font-bold text-gray-500">{index + 1}</td>
-                    <td className="p-4"><p className="font-semibold text-gray-800">{p.titulo}</p></td>
-                    <td className="p-4"><p className="text-gray-800 font-medium">{p.estudiante_nombre}</p><p className="text-xs text-gray-500 mt-1">{p.estudiante_institucion}</p></td>
-                    <td className="p-4"><span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${p.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{p.estado}</span></td>
-                    <td className="p-4">{p.codigo ? ( <div className="flex flex-col items-start"><span className="font-mono bg-gray-200 px-2 py-1 rounded text-gray-800 font-bold block mb-1">{p.codigo}</span><a href={p.url_qr} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline font-semibold">Ver QR</a></div> ) : <span className="text-gray-400 italic text-xs">Sin asignar</span>}</td>
-                    <td className="p-4 text-center space-y-1">
-                      {p.estado === 'pendiente' && <button onClick={() => aprobarPonencia(p.id)} className="block w-full px-2 py-1.5 bg-blue-600 text-white rounded text-xs font-medium">Aprobar</button>}
-                      {p.estado === 'aceptada' && ( <> <a href={`/evaluar/${p.codigo}`} target="_blank" rel="noopener noreferrer" className="block w-full px-2 py-1.5 bg-purple-50 text-purple-700 border border-purple-200 rounded text-xs font-medium text-center">📝 Evaluar</a> <button onClick={() => enviarCorreos(p.id)} disabled={procesandoAccion} className="block w-full px-2 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-xs font-medium">✉️ Grupo QR</button> </> )}
-                      <button onClick={() => solicitarEliminacion('ponencias', p.id)} className="block w-full px-2 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded text-xs font-medium">Eliminar</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {mensaje.texto && (
+            <div className={`p-4 mb-6 rounded-xl font-bold text-center text-sm md:text-base shadow-sm ${mensaje.tipo === 'exito' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
+              {mensaje.texto}
+            </div>
           )}
 
-          {/* VISTA ESTUDIANTES */}
-          {vistaActual === 'estudiantes' && (
-            <table className="w-full text-left border-collapse min-w-200">
-              <thead>
-                <tr className="bg-blue-950 text-white text-sm">
-                  <th className="p-4 font-semibold rounded-tl-xl w-12 text-center">#</th>
-                  <th className="p-4 font-semibold w-1/4">Nombre del Estudiante</th>
-                  <th className="p-4 font-semibold">Documento / PIN</th>
-                  <th className="p-4 font-semibold w-1/4">Institución / Rol</th>
-                  <th className="p-4 font-semibold w-1/4">Proyecto al que Pertenece</th>
-                  <th className="p-4 font-semibold text-center rounded-tr-xl">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {estudiantesMostrados.map((e, index) => (
-                  <tr key={e.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors text-sm">
-                    <td className="p-4 text-center font-bold text-gray-500">{index + 1}</td>
-                    <td className="p-4"><p className="font-semibold text-gray-800">{e.nombres_apellidos}</p><p className="text-xs text-gray-500">{e.correo}</p></td>
-                    <td className="p-4"><span className="text-gray-700 font-mono block">{e.documento_identidad}</span><span className="block mt-1 text-xs font-bold text-blue-800 bg-blue-50 w-max px-2 py-0.5 rounded">PIN: {e.pin_acceso || 'N/A'}</span></td>
-                    <td className="p-4"><p className="text-gray-800 font-medium">{e.institucion}</p><p className="text-xs text-gray-500">{e.cargo} | <span className="italic text-blue-900">{e.ciudad}</span></p></td>
-                    <td className="p-4"><p className="text-xs font-medium text-gray-700">{e.nombre_trabajo}</p></td>
-                    <td className="p-4 text-center space-y-1">
-                      <button onClick={() => enviarCorreoIndividualEstudiante(e.id)} disabled={procesandoAccion} className="block w-full px-2 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-xs font-medium hover:bg-indigo-100">✉️ Enviar QR</button>
-                      <button onClick={() => abrirEditarModal('estudiante', e)} className="block w-full px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200">Editar</button>
-                      <button onClick={() => solicitarEliminacion('estudiantes', e.id)} className="block w-full px-2 py-1 bg-red-50 text-red-600 border border-red-200 rounded text-xs font-medium hover:bg-red-100">Eliminar</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {/* BARRA DE HERRAMIENTAS ESPECÍFICA POR VISTA */}
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            {vistaActual === 'ponencias' && (
+              <>
+                <input type="text" placeholder="🔍 Buscar título, integrante, código..." value={filtroPonencias} onChange={(e) => setFiltroPonencias(e.target.value)} className="w-full md:w-1/3 px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-900 bg-gray-50" />
+                <div className="flex gap-2 w-full md:w-auto">
+                  <button onClick={() => enviarCorreos()} disabled={procesandoAccion} className="flex-1 md:flex-none px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md transition-colors text-sm">✉️ Enviar Todos QRs</button>
+                  <button onClick={() => borrarTodos('ponencias')} disabled={procesandoAccion} className="flex-1 md:flex-none px-5 py-2.5 bg-red-100 text-red-700 font-bold rounded-lg hover:bg-red-200 transition-colors text-sm">🗑️ Purgar Todo</button>
+                </div>
+              </>
+            )}
+            {(vistaActual === 'estudiantes' || vistaActual === 'asistencia') && (
+              <input type="text" placeholder="🔍 Buscar estudiante, documento o proyecto..." value={filtroEstudiantes} onChange={(e) => setFiltroEstudiantes(e.target.value)} className="w-full md:w-1/2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-900 bg-gray-50" />
+            )}
+            {vistaActual === 'evaluadores' && (
+              <>
+                <input type="text" placeholder="🔍 Buscar evaluador, documento, correo..." value={filtroEvaluadores} onChange={(e) => setFiltroEvaluadores(e.target.value)} className="w-full md:w-1/3 px-4 py-2.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-900 bg-gray-50" />
+                <div className="flex gap-2 w-full md:w-auto">
+                  <button onClick={() => abrirCrearModal('evaluador')} className="flex-1 md:flex-none px-5 py-2.5 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 shadow-md transition-colors text-sm">+ Nuevo Evaluador</button>
+                  <button onClick={() => borrarTodos('evaluadores')} disabled={procesandoAccion} className="flex-1 md:flex-none px-5 py-2.5 bg-red-100 text-red-700 font-bold rounded-lg hover:bg-red-200 transition-colors text-sm">🗑️ Purgar Todo</button>
+                </div>
+              </>
+            )}
+          </div>
 
-          {/* VISTA ASISTENCIA */}
-          {vistaActual === 'asistencia' && (
-            <div className="bg-white">
-              <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                <div className="flex gap-6 mb-4 md:mb-0">
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Inscritos</p>
-                    <p className="text-2xl font-bold text-blue-950">{estudiantes.length}</p>
+          {cargando ? (
+            <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-900"></div></div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+              
+              {/* TABLAS */}
+              {vistaActual === 'ponencias' && (
+                <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-800px">
+                  <thead>
+                    <tr className="bg-gray-100 text-gray-700 text-xs uppercase tracking-wider">
+                      <th className="p-4 font-bold text-center w-12 border-b border-gray-200">#</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Trabajo Evaluativo</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Integrantes & Institución</th>
+                      <th className="p-4 font-bold border-b border-gray-200 text-center">Estado</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Acceso QR</th>
+                      <th className="p-4 font-bold border-b border-gray-200 text-center">Gestión</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {ponenciasMostradas.map((p, index) => (
+                      <tr key={p.id} className="hover:bg-blue-50/50 transition-colors text-sm">
+                        <td className="p-4 text-center font-bold text-gray-400">{index + 1}</td>
+                        <td className="p-4"><p className="font-bold text-gray-800 line-clamp-2">{p.titulo}</p></td>
+                        <td className="p-4"><p className="text-gray-800 font-medium line-clamp-1">{p.estudiante_nombre}</p><p className="text-xs text-gray-500 mt-0.5">{p.estudiante_institucion}</p></td>
+                        <td className="p-4 text-center"><span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${p.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-700' : 'bg-emerald-100 text-emerald-700'}`}>{p.estado}</span></td>
+                        <td className="p-4">{p.codigo ? ( <div className="flex flex-col items-start"><span className="font-mono bg-gray-100 border border-gray-200 px-2 py-0.5 rounded text-blue-900 font-bold block mb-1">{p.codigo}</span><a href={p.url_qr} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-800 font-bold underline">Ver QR</a></div> ) : <span className="text-gray-400 italic text-xs">Sin asignar</span>}</td>
+                        <td className="p-4 text-center space-y-1.5">
+                          {p.estado === 'pendiente' && <button onClick={() => aprobarPonencia(p.id)} className="block w-full px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-sm">Aprobar</button>}
+                          {p.estado === 'aceptada' && ( <> <button onClick={() => enviarCorreos(p.id)} disabled={procesandoAccion} className="block w-full px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-colors">✉️ Grupo QR</button> </> )}
+                          <button onClick={() => solicitarEliminacion('ponencias', p.id)} className="block w-full px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold transition-colors">Eliminar</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              )}
+
+              {vistaActual === 'estudiantes' && (
+                <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-800px">
+                  <thead>
+                    <tr className="bg-gray-100 text-gray-700 text-xs uppercase tracking-wider">
+                      <th className="p-4 font-bold text-center w-12 border-b border-gray-200">#</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Estudiante</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Identificación</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Filiación</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Proyecto</th>
+                      <th className="p-4 font-bold text-center border-b border-gray-200">Gestión</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {estudiantesMostrados.map((e, index) => (
+                      <tr key={e.id} className="hover:bg-blue-50/50 transition-colors text-sm">
+                        <td className="p-4 text-center font-bold text-gray-400">{index + 1}</td>
+                        <td className="p-4"><p className="font-bold text-gray-800">{e.nombres_apellidos}</p><p className="text-xs text-gray-500 mt-0.5">{e.correo}</p></td>
+                        <td className="p-4"><span className="text-gray-600 font-mono font-medium block">{e.documento_identidad}</span><span className="block mt-1 text-[10px] font-bold text-blue-800 bg-blue-50 border border-blue-100 w-max px-2 py-0.5 rounded-full">PIN: {e.pin_acceso || 'N/A'}</span></td>
+                        <td className="p-4"><p className="text-gray-800 font-bold">{e.institucion}</p><p className="text-xs text-gray-500 mt-0.5">{e.cargo} • <span className="text-blue-700">{e.ciudad}</span></p></td>
+                        <td className="p-4"><p className="text-xs font-semibold text-gray-600 line-clamp-2">{e.nombre_trabajo}</p></td>
+                        <td className="p-4 text-center space-y-1.5">
+                          <button onClick={() => enviarCorreoIndividualEstudiante(e.id)} disabled={procesandoAccion} className="block w-full px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-colors">✉️ QR</button>
+                          <button onClick={() => abrirEditarModal('estudiante', e)} className="block w-full px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-bold transition-colors">Editar</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              )}
+
+              {vistaActual === 'asistencia' && (
+                <div>
+                  <div className="bg-gray-50 px-6 py-5 border-b border-gray-200 flex flex-wrap gap-8 justify-center md:justify-start">
+                    <div><p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Inscritos</p><p className="text-3xl font-black text-gray-800">{estudiantes.length}</p></div>
+                    <div className="border-l border-gray-300 pl-8"><p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Asistentes</p><p className="text-3xl font-black text-emerald-600">{totalAsistentes}</p></div>
+                    <div className="border-l border-gray-300 pl-8"><p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Aforo Total</p><p className="text-3xl font-black text-blue-600">{porcentajeAsistencia}%</p></div>
                   </div>
-                  <div className="text-center border-l pl-6 border-gray-300">
-                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Asistentes</p>
-                    <p className="text-2xl font-bold text-green-600">{totalAsistentes}</p>
-                  </div>
-                  <div className="text-center border-l pl-6 border-gray-300">
-                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Aforo</p>
-                    <p className="text-2xl font-bold text-indigo-600">{porcentajeAsistencia}%</p>
+                  <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-700px">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
+                        <th className="p-4 font-bold text-center w-12 border-b border-gray-200">#</th>
+                        <th className="p-4 font-bold border-b border-gray-200">Estudiante</th>
+                        <th className="p-4 font-bold border-b border-gray-200">Documento</th>
+                        <th className="p-4 font-bold border-b border-gray-200">Institución</th>
+                        <th className="p-4 font-bold text-center border-b border-gray-200">Marcar Presencia</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {estudiantesMostrados.map((e, index) => (
+                        <tr key={e.id} className={`transition-colors text-sm ${e.asistencia ? 'bg-emerald-50/30' : 'hover:bg-gray-50'}`}>
+                          <td className="p-4 text-center font-bold text-gray-400">{index + 1}</td>
+                          <td className="p-4"><p className={`font-bold ${e.asistencia ? 'text-emerald-900' : 'text-gray-800'}`}>{e.nombres_apellidos}</p></td>
+                          <td className="p-4"><span className="text-gray-600 font-mono bg-gray-100 px-2 py-0.5 rounded">{e.documento_identidad}</span></td>
+                          <td className="p-4"><p className="text-gray-600 font-medium">{e.institucion}</p></td>
+                          <td className="p-4 text-center">
+                            <button onClick={() => toggleAsistencia(e.id, e.asistencia)} className={`w-14 h-7 rounded-full relative transition-colors duration-300 focus:outline-none shadow-inner ${e.asistencia ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                              <span className={`absolute top-1/2 -translate-y-1/2 left-1 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ${e.asistencia ? 'translate-x-7' : 'translate-x-0'}`}></span>
+                            </button>
+                            <p className={`text-[10px] mt-1.5 font-bold uppercase tracking-widest ${e.asistencia ? 'text-emerald-600' : 'text-gray-400'}`}>{e.asistencia ? 'PRESENTE' : 'AUSENTE'}</p>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                   </div>
                 </div>
-                <button onClick={() => descargarExcel('asistencia')} className="px-5 py-2.5 bg-teal-600 text-white rounded-lg font-bold shadow-md hover:bg-teal-700 transition-colors flex items-center gap-2">
-                  📥 Descargar Reporte
-                </button>
-              </div>
+              )}
 
-              <table className="w-full text-left border-collapse min-w-200">
-                <thead>
-                  <tr className="bg-teal-700 text-white text-sm">
-                    <th className="p-4 font-semibold rounded-tl-xl w-12 text-center">#</th>
-                    <th className="p-4 font-semibold w-1/4">Nombre del Estudiante</th>
-                    <th className="p-4 font-semibold">Documento</th>
-                    <th className="p-4 font-semibold w-1/3">Institución</th>
-                    <th className="p-4 font-semibold text-center rounded-tr-xl">Marcar Asistencia</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {estudiantesMostrados.map((e, index) => (
-                    <tr key={e.id} className={`border-b transition-colors text-sm ${e.asistencia ? 'bg-teal-50 border-teal-100' : 'border-gray-200 hover:bg-gray-50'}`}>
-                      <td className="p-4 text-center font-bold text-gray-500">{index + 1}</td>
-                      <td className="p-4"><p className={`font-semibold ${e.asistencia ? 'text-teal-900' : 'text-gray-800'}`}>{e.nombres_apellidos}</p></td>
-                      <td className="p-4"><span className="text-gray-700 font-mono">{e.documento_identidad}</span></td>
-                      <td className="p-4"><p className="text-gray-800">{e.institucion}</p></td>
-                      <td className="p-4 text-center">
-                        <button 
-                          onClick={() => toggleAsistencia(e.id, e.asistencia)}
-                          className={`w-12 h-6 rounded-full relative transition-colors duration-300 focus:outline-none shadow-inner ${e.asistencia ? 'bg-teal-500' : 'bg-gray-300'}`}
-                        >
-                          <span className={`absolute top-1/2 -translate-y-1/2 left-1 w-4 h-4 bg-white rounded-full shadow-md transition-transform duration-300 ${e.asistencia ? 'translate-x-6' : 'translate-x-0'}`}></span>
-                        </button>
-                        <p className={`text-xs mt-1 font-bold ${e.asistencia ? 'text-teal-600' : 'text-gray-400'}`}>{e.asistencia ? 'PRESENTE' : 'AUSENTE'}</p>
-                      </td>
+              {/* ⚠️ VISTA EVALUADORES: CON BOTÓN DE ASIGNACIÓN */}
+              {vistaActual === 'evaluadores' && (
+                <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-800px">
+                  <thead>
+                    <tr className="bg-gray-100 text-gray-700 text-xs uppercase tracking-wider">
+                      <th className="p-4 font-bold border-b border-gray-200">Evaluador Registrado</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Credenciales</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Institución / Sede</th>
+                      <th className="p-4 font-bold border-b border-gray-200 text-center">Asignaciones</th>
+                      <th className="p-4 font-bold text-center border-b border-gray-200">Gestión</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {evaluadoresMostrados.map((e) => (
+                      <tr key={e.id} className="hover:bg-blue-50/50 transition-colors text-sm">
+                        <td className="p-4"><p className="font-bold text-gray-800">{e.nombres_apellidos}</p><p className="text-xs text-gray-500 mt-0.5">{e.correo}</p></td>
+                        <td className="p-4"><span className="text-gray-600 font-mono font-medium block">{e.documento_identidad}</span><span className="block mt-1 text-[10px] font-bold text-blue-800 bg-blue-50 border border-blue-100 w-max px-2 py-0.5 rounded-full">PIN: {e.pin_acceso || 'N/A'}</span></td>
+                        <td className="p-4"><p className="text-gray-800 font-bold">{e.institucion}</p><p className="text-xs text-gray-500 mt-0.5">{e.cargo} • <span className="text-blue-700">{e.evento.split(',')[0]}</span></p></td>
+                        <td className="p-4 text-center">
+                            <span className="text-xl font-black text-indigo-600 bg-indigo-50 w-10 h-10 inline-flex items-center justify-center rounded-xl border border-indigo-100">
+                                {e.ponencias_asignadas?.length || 0}
+                            </span>
+                        </td>
+                        <td className="p-4 text-center space-y-1.5">
+                          {/* BOTÓN ASIGNAR */}
+                          <button onClick={() => abrirAsignacion(e)} className="block w-full px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors">🎯 Asignar Ponencias</button>
+                          <button onClick={() => abrirEditarModal('evaluador', e)} className="block w-full px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-bold transition-colors">Editar</button>
+                          <button onClick={() => solicitarEliminacion('evaluadores', e.id)} className="block w-full px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold transition-colors">Eliminar</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              )}
+
+              {/* ⚠️ RANKING CON NOMBRES DE EVALUADORES */}
+              {vistaActual === 'ranking' && (
+                <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-800px">
+                  <thead>
+                    <tr className="bg-gray-100 text-gray-700 text-xs uppercase tracking-wider">
+                      <th className="p-4 font-bold text-center border-b border-gray-200 w-24">Puesto</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Proyecto Evaluado</th>
+                      <th className="p-4 font-bold border-b border-gray-200">Evaluado por</th>
+                      <th className="p-4 font-bold text-center border-b border-gray-200">Promedio</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {ranking.map((item, idx) => (
+                      <tr key={item.id} className={`text-sm ${idx === 0 ? 'bg-amber-50/50' : 'hover:bg-gray-50'} transition-colors`}>
+                        <td className="p-4 text-center">
+                          <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-black text-lg shadow-sm ${idx === 0 ? 'bg-amber-400 text-white' : idx === 1 ? 'bg-gray-300 text-white' : idx === 2 ? 'bg-orange-300 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                            {idx + 1}
+                          </span>
+                        </td>
+                        <td className="p-4"><p className="font-bold text-gray-800 line-clamp-2">{item.titulo}</p><p className="text-xs text-gray-500 mt-1">Autor: {item.estudiante_nombre} • Código: <span className="font-mono bg-gray-200 px-1 rounded text-gray-700 font-bold">{item.codigo}</span></p></td>
+                        <td className="p-4">
+                          {item.evaluadores_nombres?.length > 0 ? (
+                            <ul className="list-disc pl-4 text-xs text-gray-600 font-medium space-y-0.5">
+                              {item.evaluadores_nombres.map((nom, i) => <li key={i}>{nom}</li>)}
+                            </ul>
+                          ) : <span className="text-xs italic text-gray-400">Sin evaluar</span>}
+                        </td>
+                        <td className="p-4 text-center"><span className="bg-blue-950 text-white px-4 py-2 rounded-xl font-black text-base shadow-md inline-block">{item.promedio}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              )}
+
+              {vistaActual === 'qr' && (
+                <div className="flex flex-col items-center justify-center py-16 px-4 w-full">
+                  <h3 className="text-2xl font-black text-blue-950 mb-6 text-center">Registro Público de Evaluadores</h3>
+                  <div className="bg-white p-6 rounded-3xl shadow-xl border border-gray-100 mb-6 flex justify-center">
+                    <QRCodeSVG value={urlRegistroEvaluador} size={240} level="H" />
+                  </div>
+                  <p className="text-sm text-gray-500 font-mono bg-gray-100 px-4 py-2.5 rounded-lg border border-gray-200 text-center break-all w-full max-w-lg shadow-inner">{urlRegistroEvaluador}</p>
+                </div>
+              )}
+
             </div>
           )}
+        </main>
+      </div>
 
-          {/* VISTA EVALUADORES */}
-          {vistaActual === 'evaluadores' && (
-            <table className="w-full text-left border-collapse min-w-200">
-              <thead>
-                <tr className="bg-blue-950 text-white text-sm">
-                  <th className="p-4 font-semibold rounded-tl-xl w-1/3">Nombre del Evaluador</th>
-                  <th className="p-4 font-semibold">Documento / PIN</th>
-                  <th className="p-4 font-semibold w-1/3">Institución / Cargo</th>
-                  <th className="p-4 font-semibold text-center rounded-tr-xl">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {evaluadoresMostrados.map((e) => (
-                  <tr key={e.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors text-sm">
-                    <td className="p-4"><p className="font-semibold text-gray-800">{e.nombres_apellidos}</p><p className="text-xs text-gray-500">{e.correo}</p></td>
-                    <td className="p-4"><span className="text-gray-700 font-mono block">{e.documento_identidad}</span><span className="block mt-1 text-xs font-bold text-blue-800 bg-blue-50 w-max px-2 py-0.5 rounded">PIN: {e.pin_acceso || 'N/A'}</span></td>
-                    <td className="p-4"><p className="text-gray-800 font-medium">{e.institucion}</p><p className="text-xs text-gray-500">{e.cargo} | <span className="italic text-blue-900">{e.evento.split(',')[0]}</span></p></td>
-                    <td className="p-4 text-center space-y-1">
-                      <button onClick={() => abrirEditarModal('evaluador', e)} className="block w-full px-2 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">Editar</button>
-                      <button onClick={() => solicitarEliminacion('evaluadores', e.id)} className="block w-full px-2 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded text-xs font-medium">Eliminar</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {/* RANKING */}
-          {vistaActual === 'ranking' && (
-            <table className="w-full text-left border-collapse min-w-175">
-              <thead>
-                <tr className="bg-amber-600 text-white text-sm">
-                  <th className="p-4 font-semibold rounded-tl-xl text-center">Puesto</th>
-                  <th className="p-4 font-semibold">Trabajo y Equipo</th>
-                  <th className="p-4 font-semibold text-center">Evaluaciones</th>
-                  <th className="p-4 font-semibold text-center rounded-tr-xl">Promedio General</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ranking.map((item, idx) => (
-                  <tr key={item.id} className={`border-b border-gray-200 text-sm ${idx === 0 ? 'bg-amber-50' : 'hover:bg-gray-50'}`}>
-                    <td className="p-4 text-center font-bold text-gray-700 text-lg">{idx === 0 ? '🥇 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : idx + 1}</td>
-                    <td className="p-4"><p className="font-semibold text-gray-800">{item.titulo}</p><p className="text-xs text-gray-500 mt-1">Por: {item.estudiante_nombre} | Código: <span className="font-mono bg-gray-200 px-1 rounded">{item.codigo}</span></p></td>
-                    <td className="p-4 text-center font-medium text-gray-700">{item.num_evaluaciones} / 2</td>
-                    <td className="p-4 text-center"><span className="bg-amber-100 text-amber-800 px-3 py-1.5 rounded-lg font-bold border border-amber-200">{item.promedio} pts</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {vistaActual === 'qr' && (
-            <div className="flex flex-col items-center justify-center py-10 px-4 bg-gray-50 rounded-xl border border-gray-200 w-full">
-              <h3 className="text-xl md:text-2xl font-bold text-blue-950 mb-4 text-center">Registro de Evaluadores</h3>
-              <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg border border-gray-200 mb-6 flex justify-center">
-                <QRCodeSVG value={urlRegistroEvaluador} size={200} level="H" />
-              </div>
-              <p className="text-xs text-gray-500 font-mono bg-white px-3 py-2 rounded border border-gray-200 text-center break-all w-full max-w-md">{urlRegistroEvaluador}</p>
+      {/* ⚠️ MODAL DE ASIGNACIÓN DE PONENCIAS */}
+      {modalAsignarAbierto && evaluadorAAsignar && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl p-6 md:p-8 flex flex-col max-h-[90vh]">
+            <h3 className="text-2xl font-bold text-blue-950 mb-1">Asignar Proyectos</h3>
+            <p className="text-sm text-gray-500 mb-6 border-b pb-4">Selecciona los proyectos que el evaluador <strong>{evaluadorAAsignar.nombres_apellidos}</strong> deberá calificar.</p>
+            
+            <div className="flex-1 overflow-y-auto mb-6 pr-2 space-y-2">
+              {ponencias.map(p => (
+                <label key={p.id} className={`flex items-center gap-4 p-3 rounded-xl border cursor-pointer transition-colors ${ponenciasSeleccionadas.includes(p.codigo) ? 'bg-indigo-50 border-indigo-300' : 'hover:bg-gray-50 border-gray-200'}`}>
+                  <input type="checkbox" checked={ponenciasSeleccionadas.includes(p.codigo)} onChange={() => togglePonenciaSeleccionada(p.codigo)} className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-600" />
+                  <div>
+                    <p className={`text-sm font-bold line-clamp-1 ${ponenciasSeleccionadas.includes(p.codigo) ? 'text-indigo-900' : 'text-gray-800'}`}>{p.titulo}</p>
+                    <p className="text-xs text-gray-500 font-mono mt-0.5">CÓDIGO: {p.codigo}</p>
+                  </div>
+                </label>
+              ))}
+              {ponencias.length === 0 && <p className="text-center text-gray-400 py-10 text-sm">No hay ponencias aprobadas en el sistema.</p>}
             </div>
-          )}
 
-        </div>
-      )}
-
-      {/* MODAL DE CONFIRMACIÓN */}
-      {modalConfirmacion.abierto && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 border-t-4 border-red-600 text-center">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">¿Eliminar registro?</h3>
-            <p className="text-gray-500 text-sm mb-6">Esta acción borrará permanentemente sus datos técnicos.</p>
-            <div className="flex flex-col md:flex-row justify-center gap-3">
-              <button onClick={() => setModalConfirmacion({ abierto: false, entidad: '', id: null })} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold w-full md:w-auto">Cancelar</button>
-              <button onClick={confirmarEliminacion} className="px-5 py-2.5 bg-red-600 text-white rounded-lg font-bold shadow-md w-full md:w-auto">Sí, eliminar</button>
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button onClick={() => setModalAsignarAbierto(false)} className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
+              <button onClick={guardarAsignacion} disabled={procesandoAccion} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-md transition-colors disabled:opacity-50 flex items-center gap-2">
+                {procesandoAccion ? 'Enviando...' : 'Guardar y Notificar ✉️'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL EDITAR */}
+      {/* MODALES CLÁSICOS */}
+      {modalConfirmacion.abierto && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 border-t-4 border-red-600 text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">🗑️</div>
+            <h3 className="text-xl font-black text-gray-900 mb-2">¿Eliminar registro?</h3>
+            <p className="text-gray-500 text-sm mb-6">Esta acción borrará permanentemente sus datos técnicos.</p>
+            <div className="flex justify-center gap-3">
+              <button onClick={() => setModalConfirmacion({ abierto: false, entidad: '', id: null })} className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold w-full transition-colors">Cancelar</button>
+              <button onClick={confirmarEliminacion} className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-md w-full transition-colors">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modalAbierto && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-xs">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 md:p-8 border max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl md:text-2xl font-bold text-blue-950 mb-6 capitalize">{modalModo} {modalEntidad}</h3>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 md:p-8 flex flex-col max-h-[90vh]">
+            <h3 className="text-xl md:text-2xl font-bold text-blue-950 mb-6 capitalize pb-4 border-b">{modalModo} {modalEntidad}</h3>
+            <div className="overflow-y-auto pr-2">
+              <form id="modalForm" onSubmit={guardarModal} className="space-y-4">
+                {modalEntidad === 'ponencia' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Título del Trabajo / Póster</label>
+                      <input type="text" required value={formPonencia.titulo} onChange={(e) => setFormPonencia({...formPonencia, titulo: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Nombre del Estudiante</label>
+                        <input type="text" required value={formPonencia.estudiante_nombre} onChange={(e) => setFormPonencia({...formPonencia, estudiante_nombre: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Cédula</label>
+                        <input type="text" required value={formPonencia.estudiante_documento} onChange={(e) => setFormPonencia({...formPonencia, estudiante_documento: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {modalEntidad === 'estudiante' && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Nombre del Estudiante</label>
+                        <input type="text" required value={formEstudiante.nombres_apellidos} onChange={(e) => setFormEstudiante({...formEstudiante, nombres_apellidos: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Cédula / Documento</label>
+                        <input type="text" required value={formEstudiante.documento_identidad} onChange={(e) => setFormEstudiante({...formEstudiante, documento_identidad: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Institución / Universidad</label>
+                        <input type="text" required value={formEstudiante.institucion} onChange={(e) => setFormEstudiante({...formEstudiante, institucion: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Correo Electrónico</label>
+                        <input type="email" required value={formEstudiante.correo} onChange={(e) => setFormEstudiante({...formEstudiante, correo: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Ciudad</label>
+                        <select required value={formEstudiante.ciudad} onChange={(e) => setFormEstudiante({...formEstudiante, ciudad: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm">
+                          {ciudadesColombia.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Cargo</label>
+                        <select required value={formEstudiante.cargo} onChange={(e) => setFormEstudiante({...formEstudiante, cargo: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm">
+                          <option value="Lider de semillero">Lider de semillero</option>
+                          <option value="Estudiante 1">Estudiante 1</option>
+                          <option value="Estudiante 2">Estudiante 2</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Asignar a Trabajo</label>
+                      <textarea required rows="2" value={formEstudiante.nombre_trabajo} onChange={(e) => setFormEstudiante({...formEstudiante, nombre_trabajo: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm resize-none" />
+                    </div>
+                  </>
+                )}
+
+                {modalEntidad === 'evaluador' && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Nombre del Evaluador</label>
+                        <input type="text" required value={formEvaluador.nombres_apellidos} onChange={(e) => setFormEvaluador({...formEvaluador, nombres_apellidos: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Documento</label>
+                        <input type="text" required value={formEvaluador.documento_identidad} onChange={(e) => setFormEvaluador({...formEvaluador, documento_identidad: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Institución de Procedencia</label>
+                        <input type="text" required value={formEvaluador.institucion} onChange={(e) => setFormEvaluador({...formEvaluador, institucion: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Correo de Contacto</label>
+                        <input type="email" required value={formEvaluador.correo} onChange={(e) => setFormEvaluador({...formEvaluador, correo: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Cargo Académico</label>
+                        <input type="text" required value={formEvaluador.cargo} onChange={(e) => setFormEvaluador({...formEvaluador, cargo: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-600 mb-1 uppercase tracking-wide">Evento Sede</label>
+                        <select value={formEvaluador.evento_id} onChange={(e) => setFormEvaluador({...formEvaluador, evento_id: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-900 text-sm">
+                          {eventosDisponibles.map(ev => <option key={ev.id} value={ev.id}>{ev.nombre}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </form>
+            </div>
             
-            <form onSubmit={guardarModal} className="space-y-4">
-              {modalEntidad === 'ponencia' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Título del Trabajo / Póster</label>
-                    <input type="text" required value={formPonencia.titulo} onChange={(e) => setFormPonencia({...formPonencia, titulo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Nombre del Estudiante</label>
-                      <input type="text" required value={formPonencia.estudiante_nombre} onChange={(e) => setFormPonencia({...formPonencia, estudiante_nombre: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Cédula</label>
-                      <input type="text" required value={formPonencia.estudiante_documento} onChange={(e) => setFormPonencia({...formPonencia, estudiante_documento: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {modalEntidad === 'estudiante' && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Nombre del Estudiante</label>
-                      <input type="text" required value={formEstudiante.nombres_apellidos} onChange={(e) => setFormEstudiante({...formEstudiante, nombres_apellidos: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Cédula / Documento</label>
-                      <input type="text" required value={formEstudiante.documento_identidad} onChange={(e) => setFormEstudiante({...formEstudiante, documento_identidad: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Institución / Universidad</label>
-                      <input type="text" required value={formEstudiante.institucion} onChange={(e) => setFormEstudiante({...formEstudiante, institucion: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Correo Electrónico</label>
-                      <input type="email" required value={formEstudiante.correo} onChange={(e) => setFormEstudiante({...formEstudiante, correo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Ciudad</label>
-                      <select required value={formEstudiante.ciudad} onChange={(e) => setFormEstudiante({...formEstudiante, ciudad: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white">
-                        {ciudadesColombia.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Cargo</label>
-                      <select required value={formEstudiante.cargo} onChange={(e) => setFormEstudiante({...formEstudiante, cargo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white">
-                        <option value="Lider de semillero">Lider de semillero</option>
-                        <option value="Estudiante 1">Estudiante 1</option>
-                        <option value="Estudiante 2">Estudiante 2</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Asignar a Trabajo</label>
-                    <textarea required rows="2" value={formEstudiante.nombre_trabajo} onChange={(e) => setFormEstudiante({...formEstudiante, nombre_trabajo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm resize-none" />
-                  </div>
-                </>
-              )}
-
-              {modalEntidad === 'evaluador' && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Nombre del Evaluador</label>
-                      <input type="text" required value={formEvaluador.nombres_apellidos} onChange={(e) => setFormEvaluador({...formEvaluador, nombres_apellidos: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Documento</label>
-                      <input type="text" required value={formEvaluador.documento_identidad} onChange={(e) => setFormEvaluador({...formEvaluador, documento_identidad: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Institución de Procedencia</label>
-                      <input type="text" required value={formEvaluador.institucion} onChange={(e) => setFormEvaluador({...formEvaluador, institucion: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Correo de Contacto</label>
-                      <input type="email" required value={formEvaluador.correo} onChange={(e) => setFormEvaluador({...formEvaluador, correo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Cargo Académico</label>
-                      <input type="text" required value={formEvaluador.cargo} onChange={(e) => setFormEvaluador({...formEvaluador, cargo: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Evento Sede</label>
-                      <select value={formEvaluador.evento_id} onChange={(e) => setFormEvaluador({...formEvaluador, evento_id: e.target.value})} className="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white">
-                        {eventosDisponibles.map(ev => <option key={ev.id} value={ev.id}>{ev.nombre}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4 border-t mt-6">
-                <button type="button" onClick={() => setModalAbierto(false)} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold">Cancelar</button>
-                <button type="submit" className="px-6 py-2.5 bg-blue-900 text-white rounded-lg text-sm font-bold shadow-md">Guardar Información</button>
-              </div>
-            </form>
+            <div className="flex justify-end gap-3 pt-4 border-t mt-4">
+              <button type="button" onClick={() => setModalAbierto(false)} className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-bold transition-colors">Cancelar</button>
+              <button type="submit" form="modalForm" className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white rounded-lg text-sm font-bold shadow-md transition-colors">Guardar Información</button>
+            </div>
           </div>
         </div>
       )}
