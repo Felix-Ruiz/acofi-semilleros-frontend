@@ -20,14 +20,14 @@ function AdminPanel() {
   
   const [registroAbierto, setRegistroAbierto] = useState(true);
 
-  // Estados de Modales Clásicos
+  // Modales Clásicos
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modalModo, setModalModo] = useState('crear');
   const [modalEntidad, setModalEntidad] = useState('ponencia');
   const [idSeleccionado, setIdSeleccionado] = useState(null);
   const [modalConfirmacion, setModalConfirmacion] = useState({ abierto: false, entidad: '', id: null });
 
-  // Estados para el Modal de Asignar Ponencias a Evaluadores
+  // Modal Asignaciones
   const [modalAsignarAbierto, setModalAsignarAbierto] = useState(false);
   const [evaluadorAAsignar, setEvaluadorAAsignar] = useState(null);
   const [ponenciasSeleccionadas, setPonenciasSeleccionadas] = useState([]);
@@ -65,7 +65,6 @@ function AdminPanel() {
     }
   };
 
-  // ⚠️ SOLUCIÓN: Carga de datos original, limpia y sin bloqueos de redirección
   useEffect(() => {
     if (vistaActual !== 'qr') cargarDatos();
     else setCargando(false);
@@ -82,17 +81,15 @@ function AdminPanel() {
   };
 
   const borrarTodos = async (entidad) => {
-    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?\n\nEsta acción borrará recursos físicos de Cloudinary. NO SE PUEDE DESHACER.`);
+    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?`);
     if (!confirmacion) return;
     
     const confirmacion2 = window.prompt(`Para confirmar, escribe exactamente la palabra "ELIMINAR"`);
     if (confirmacion2 !== "ELIMINAR") {
-        setMensaje({ tipo: 'error', texto: 'Operación cancelada.' });
         return;
     }
 
     setProcesandoAccion(true);
-    setMensaje({ tipo: '', texto: `Vaciando registros masivos...` });
     try {
       await axios.delete(`${API_URL}/api/admin/borrar_todos/${entidad}`);
       setMensaje({ tipo: 'exito', texto: `Se han eliminado todos los registros correctamente.` });
@@ -105,13 +102,15 @@ function AdminPanel() {
   };
 
   const aprobarPonencia = async (id) => {
-    setMensaje({ tipo: '', texto: 'Aprobando ponencia y generando QR...' });
+    setProcesandoAccion(true);
     try {
       const respuesta = await axios.post(`${API_URL}/api/admin/aceptar_ponencia/${id}`);
       setMensaje({ tipo: 'exito', texto: `¡Ponencia aprobada! Código asignado: ${respuesta.data.codigo_asignado}` });
       cargarDatos();
     } catch (error) {
       setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al aprobar la ponencia' });
+    } finally {
+      setProcesandoAccion(false);
     }
   };
 
@@ -122,7 +121,7 @@ function AdminPanel() {
       await axios.put(`${API_URL}/api/admin/estudiantes/${id}/asistencia`, { asistencia: nuevoEstado });
     } catch (error) {
       setEstudiantes(estudiantes.map(e => e.id === id ? { ...e, asistencia: estadoActual } : e));
-      setMensaje({ tipo: 'error', texto: 'Error al guardar la asistencia en la base de datos.' });
+      setMensaje({ tipo: 'error', texto: 'Error al guardar la asistencia.' });
     }
   };
 
@@ -133,7 +132,6 @@ function AdminPanel() {
   const confirmarEliminacion = async () => {
     const { entidad, id } = modalConfirmacion;
     setModalConfirmacion({ abierto: false, entidad: '', id: null });
-    setMensaje({ tipo: '', texto: '' });
     try {
       await axios.delete(`${API_URL}/api/admin/${entidad}/${id}`);
       setMensaje({ tipo: 'exito', texto: 'Registro eliminado con éxito.' });
@@ -160,40 +158,19 @@ function AdminPanel() {
     setModalEntidad(entidad);
     setIdSeleccionado(item.id);
     if (entidad === 'ponencia') {
-      setFormPonencia({
-        titulo: item.titulo,
-        estudiante_nombre: item.estudiante_nombre,
-        estudiante_documento: item.estudiante_documento,
-        estudiante_institucion: item.estudiante_institucion,
-        estudiante_correo: item.estudiante_correo,
-        estudiante_ciudad: item.estudiante_ciudad,
-        estudiante_cargo: item.estudiante_cargo
-      });
+      setFormPonencia({ titulo: item.titulo, estudiante_nombre: item.estudiante_nombre, estudiante_documento: item.estudiante_documento, estudiante_institucion: item.estudiante_institucion, estudiante_correo: item.estudiante_correo, estudiante_ciudad: item.estudiante_ciudad, estudiante_cargo: item.estudiante_cargo });
     } else if (entidad === 'estudiante') {
-      setFormEstudiante({
-        nombres_apellidos: item.nombres_apellidos,
-        documento_identidad: item.documento_identidad,
-        institucion: item.institucion,
-        correo: item.correo,
-        ciudad: item.ciudad,
-        cargo: item.cargo,
-        nombre_trabajo: item.nombre_trabajo
-      });
+      setFormEstudiante({ nombres_apellidos: item.nombres_apellidos, documento_identidad: item.documento_identidad, institucion: item.institucion, correo: item.correo, ciudad: item.ciudad, cargo: item.cargo, nombre_trabajo: item.nombre_trabajo });
     } else {
-      setFormEvaluador({
-        nombres_apellidos: item.nombres_apellidos,
-        documento_identidad: item.documento_identidad,
-        institucion: item.institucion,
-        correo: item.correo,
-        cargo: item.cargo,
-        evento_id: String(item.evento_id)
-      });
+      setFormEvaluador({ nombres_apellidos: item.nombres_apellidos, documento_identidad: item.documento_identidad, institucion: item.institucion, correo: item.correo, cargo: item.cargo, evento_id: String(item.evento_id) });
     }
     setModalAbierto(true);
   };
 
   const guardarModal = async (e) => {
     e.preventDefault();
+    setModalAbierto(false); // ⚠️ CIERRA EL MODAL ANTES DE PROCESAR
+    
     let urlBase = `${API_URL}/api/admin/ponencias`;
     let payload = formPonencia;
 
@@ -208,18 +185,15 @@ function AdminPanel() {
     try {
       if (modalModo === 'crear') {
         const respuesta = await axios.post(urlBase, payload);
-        const textoExito = respuesta.data.pin 
-          ? `${respuesta.data.mensaje} | PIN DE ACCESO: ${respuesta.data.pin}` 
-          : respuesta.data.mensaje || 'Registro creado exitosamente.';
+        const textoExito = respuesta.data.pin ? `${respuesta.data.mensaje} | PIN: ${respuesta.data.pin}` : respuesta.data.mensaje;
         setMensaje({ tipo: 'exito', texto: textoExito });
       } else {
         await axios.put(`${urlBase}/${idSeleccionado}`, payload);
         setMensaje({ tipo: 'exito', texto: 'Registro actualizado con éxito.' });
       }
-      setModalAbierto(false);
       cargarDatos();
     } catch (error) {
-      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Ocurrió un error en la operación.' });
+      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Error al guardar los datos. Verifique si ya existe.' });
     }
   };
 
@@ -234,11 +208,8 @@ function AdminPanel() {
     formData.append('file', file);
     
     setProcesandoAccion(true);
-    setMensaje({ tipo: '', texto: 'Procesando archivo masivo... Esto garantizará que se guarden todos los estudiantes sin omitir a ninguno.' });
     try {
-      await axios.post(`${API_URL}/api/admin/cargar_excel`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      await axios.post(`${API_URL}/api/admin/cargar_excel`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       setMensaje({ tipo: 'exito', texto: 'Excel cargado y grupos procesados correctamente.' });
       cargarDatos();
     } catch (error) {
@@ -253,7 +224,6 @@ function AdminPanel() {
     const confirmacion = window.confirm(id_ponencia ? "¿Enviar correo a los integrantes de este grupo?" : "¿Está seguro de enviar masivamente los QRs a TODOS los estudiantes aprobados?");
     if (!confirmacion) return;
     setProcesandoAccion(true);
-    setMensaje({ tipo: '', texto: 'Enviando correos, por favor espere...' });
     try {
       const payload = id_ponencia ? { id_ponencia } : {};
       const res = await axios.post(`${API_URL}/api/admin/enviar_qrs`, payload);
@@ -269,7 +239,6 @@ function AdminPanel() {
     const confirmacion = window.confirm("¿Enviar credencial digital (QR + PIN) de manera exclusiva a este estudiante?");
     if (!confirmacion) return;
     setProcesandoAccion(true);
-    setMensaje({ tipo: '', texto: 'Despachando correo individual...' });
     try {
       const res = await axios.post(`${API_URL}/api/admin/enviar_qr_estudiante/${id}`);
       setMensaje({ tipo: 'exito', texto: res.data.mensaje });
@@ -298,12 +267,12 @@ function AdminPanel() {
 
   const guardarAsignacion = async () => {
     setProcesandoAccion(true);
+    setModalAsignarAbierto(false); // ⚠️ CIERRA EL MODAL ANTES
     try {
       await axios.post(`${API_URL}/api/admin/evaluadores/${evaluadorAAsignar.id}/asignar`, {
         ponencias_codigos: ponenciasSeleccionadas
       });
       setMensaje({ tipo: 'exito', texto: 'Ponencias asignadas y correo enviado exitosamente al evaluador.' });
-      setModalAsignarAbierto(false);
       cargarDatos(); 
     } catch (error) {
       setMensaje({ tipo: 'error', texto: 'No se pudo asignar las ponencias.' });
@@ -334,8 +303,29 @@ function AdminPanel() {
   const porcentajeAsistencia = estudiantes.length > 0 ? Math.round((totalAsistentes / estudiantes.length) * 100) : 0;
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden w-full font-sans">
+    <div className="flex h-screen bg-gray-50 overflow-hidden w-full font-sans relative">
       
+      {/* ⚠️ MODAL DE ALERTAS FLOTANTE (POP-UP CENTRAL) */}
+      {mensaje.texto && (
+        <div className="fixed inset-0 bg-black/50 z-100 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-8 text-center transform scale-100 transition-transform">
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5 text-4xl shadow-inner ${mensaje.tipo === 'exito' ? 'bg-emerald-100 text-emerald-500' : 'bg-red-100 text-red-500'}`}>
+              {mensaje.tipo === 'exito' ? '✓' : '✗'}
+            </div>
+            <h3 className="text-2xl font-black text-gray-900 mb-2">
+              {mensaje.tipo === 'exito' ? '¡Éxito!' : 'Atención'}
+            </h3>
+            <p className="text-gray-600 text-sm mb-8 font-medium leading-relaxed">{mensaje.texto}</p>
+            <button 
+              onClick={() => setMensaje({ tipo: '', texto: '' })} 
+              className={`px-6 py-3 rounded-xl font-bold w-full shadow-lg transition-colors text-white ${mensaje.tipo === 'exito' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'}`}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* SIDEBAR LATERAL PROFESIONAL */}
       <div className="w-64 bg-blue-950 text-white flex flex-col shadow-2xl z-20 shrink-0">
         <div className="p-6 border-b border-blue-900">
@@ -409,14 +399,7 @@ function AdminPanel() {
 
         {/* CONTENIDO INTERNO DESLIZABLE */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-gray-50">
-          
-          {mensaje.texto && (
-            <div className={`p-4 mb-6 rounded-xl font-bold text-center text-sm md:text-base shadow-sm ${mensaje.tipo === 'exito' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
-              {mensaje.texto}
-            </div>
-          )}
 
-          {/* BARRA DE HERRAMIENTAS DE BUSCADORES */}
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
             {vistaActual === 'ponencias' && (
               <>
@@ -446,7 +429,6 @@ function AdminPanel() {
           ) : (
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
               
-              {/* TABLAS ENUMERADAS */}
               {vistaActual === 'ponencias' && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-800px">
@@ -665,21 +647,7 @@ function AdminPanel() {
         </div>
       )}
 
-      {/* MODALES CLÁSICOS */}
-      {modalConfirmacion.abierto && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 border-t-4 border-red-600 text-center">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">🗑️</div>
-            <h3 className="text-xl font-black text-gray-900 mb-2">¿Eliminar registro?</h3>
-            <p className="text-gray-500 text-sm mb-6">Esta acción borrará permanentemente sus datos técnicos.</p>
-            <div className="flex justify-center gap-3">
-              <button onClick={() => setModalConfirmacion({ abierto: false, entidad: '', id: null })} className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold w-full transition-colors">Cancelar</button>
-              <button onClick={confirmarEliminacion} className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-md w-full transition-colors">Eliminar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* MODALES DE EDICIÓN */}
       {modalAbierto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-sm">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 md:p-8 flex flex-col max-h-[90vh]">
