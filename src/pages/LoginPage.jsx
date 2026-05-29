@@ -10,6 +10,7 @@ function LoginPage() {
   const [formData, setFormData] = useState({ documento: '', pin: '', correo: '', password: '' });
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
   const [cargando, setCargando] = useState(false);
+  const [esAdmin, setEsAdmin] = useState(false); // ⚠️ ESTADO PARA ALTERNAR VISTA DE ADMIN
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -23,11 +24,12 @@ function LoginPage() {
     try {
       const respuesta = await axios.post(`${API_URL}/api/login`, formData);
       
+      // Guardamos la sesión y los datos para autocompletar
       localStorage.setItem('usuario_logueado', 'true');
       localStorage.setItem('usuario_nombre', respuesta.data.nombre);
       localStorage.setItem('usuario_tipo', respuesta.data.tipo_usuario);
       localStorage.setItem('usuario_id', respuesta.data.id); 
-      localStorage.setItem('usuario_documento', formData.documento); 
+      localStorage.setItem('usuario_documento', formData.documento || ''); 
       localStorage.setItem('usuario_correo', respuesta.data.correo || ''); 
       
       // ⚠️ LÓGICA DE REDIRECCIÓN VÍA QUERY PARAMETERS DEL QR
@@ -61,10 +63,21 @@ function LoginPage() {
         </svg>
       </div>
       
-      <h2 className="text-2xl md:text-3xl font-bold text-blue-950 mb-2 text-center">Acceso al Sistema</h2>
-      <p className="text-gray-500 text-center mb-8 text-sm">
-        Ingrese su documento de identidad y el PIN asignado.
+      <h2 className="text-2xl md:text-3xl font-bold text-blue-950 mb-2 text-center">
+        Acceso {esAdmin ? 'Administrador' : 'al Sistema'}
+      </h2>
+      <p className="text-gray-500 text-center mb-4 text-sm">
+        {esAdmin ? 'Ingrese correo y contraseña de administración.' : 'Ingrese su documento de identidad y el PIN asignado.'}
       </p>
+
+      {/* ⚠️ BOTÓN PARA ALTERNAR ENTRE EVALUADOR/ESTUDIANTE Y ADMINISTRADOR */}
+      <button 
+        type="button" 
+        onClick={() => setEsAdmin(!esAdmin)} 
+        className="text-xs text-blue-600 hover:underline mb-6 font-semibold block text-center"
+      >
+        {esAdmin ? '¿Eres evaluador o estudiante?' : '¿Eres administrador del evento?'}
+      </button>
 
       {mensaje.texto && (
         <div className={`w-full p-4 mb-6 rounded-lg font-medium text-center text-sm ${
@@ -75,31 +88,64 @@ function LoginPage() {
       )}
 
       <form onSubmit={handleSubmit} className="w-full space-y-5">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">Número de Documento</label>
-          <input 
-            type="text" 
-            name="documento" 
-            required 
-            value={formData.documento} 
-            onChange={handleChange} 
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none transition-all"
-            placeholder="Ej: 1023456789"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">PIN de Acceso</label>
-          <input 
-            type="password" 
-            name="pin" 
-            required 
-            value={formData.pin} 
-            onChange={handleChange} 
-            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none transition-all tracking-widest text-lg font-mono"
-            placeholder="••••"
-            maxLength="4"
-          />
-        </div>
+        {esAdmin ? (
+          <>
+            {/* VISTA DE ADMINISTRADOR */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Correo Electrónico</label>
+              <input 
+                type="email" 
+                name="correo" 
+                required={esAdmin} 
+                value={formData.correo} 
+                onChange={handleChange} 
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none transition-all"
+                placeholder="admin@acofiapps.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Contraseña</label>
+              <input 
+                type="password" 
+                name="password" 
+                required={esAdmin} 
+                value={formData.password} 
+                onChange={handleChange} 
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none transition-all tracking-widest text-lg font-mono"
+                placeholder="••••••••"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* VISTA DE EVALUADOR / ESTUDIANTE */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Número de Documento</label>
+              <input 
+                type="text" 
+                name="documento" 
+                required={!esAdmin} 
+                value={formData.documento} 
+                onChange={handleChange} 
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none transition-all"
+                placeholder="Ej: 1023456789"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">PIN de Acceso</label>
+              <input 
+                type="password" 
+                name="pin" 
+                required={!esAdmin} 
+                value={formData.pin} 
+                onChange={handleChange} 
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-900 outline-none transition-all tracking-widest text-lg font-mono"
+                placeholder="••••"
+                maxLength="4"
+              />
+            </div>
+          </>
+        )}
 
         <button 
           type="submit" 

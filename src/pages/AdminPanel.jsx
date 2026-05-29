@@ -21,14 +21,14 @@ function AdminPanel() {
   
   const [registroAbierto, setRegistroAbierto] = useState(true);
 
-  // Estados modales
+  // Estados de Modales Clásicos
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modalModo, setModalModo] = useState('crear');
   const [modalEntidad, setModalEntidad] = useState('ponencia');
   const [idSeleccionado, setIdSeleccionado] = useState(null);
   const [modalConfirmacion, setModalConfirmacion] = useState({ abierto: false, entidad: '', id: null });
-  
-  // Modal de asignaciones
+
+  // ⚠️ NUEVO: Estados para el Modal de Asignar Ponencias a Evaluadores
   const [modalAsignarAbierto, setModalAsignarAbierto] = useState(false);
   const [evaluadorAAsignar, setEvaluadorAAsignar] = useState(null);
   const [ponenciasSeleccionadas, setPonenciasSeleccionadas] = useState([]);
@@ -41,6 +41,7 @@ function AdminPanel() {
   const ciudadesColombia = ['Arauca', 'Armenia', 'Barranquilla', 'Bogotá D.C.', 'Bucaramanga', 'Cali', 'Cartagena de Indias', 'Cúcuta', 'Florencia', 'Ibagué', 'Inírida', 'Leticia', 'Manizales', 'Medellín', 'Mitú', 'Mocoa', 'Montería', 'Neiva', 'Pasto', 'Pereira', 'Popayán', 'Puerto Carreño', 'Quibdó', 'Riohacha', 'San Andrés', 'San José del Guaviare', 'Santa Marta', 'Sincelejo', 'Tunja', 'Valledupar', 'Villavicencio', 'Yopal'];
   const eventosDisponibles = [{ id: 1, nombre: "Barranquilla, Atlántico" }, { id: 2, nombre: "Bogotá, Distrito Capital" }, { id: 3, nombre: "Pereira, Risaralda" }];
 
+  // ⚠️ SEGURIDAD: Expulsar si no es admin (soluciona la fuga de seguridad visual)
   useEffect(() => {
     if (localStorage.getItem('usuario_tipo') !== 'admin') {
       window.location.href = '/login'; 
@@ -54,7 +55,6 @@ function AdminPanel() {
   const cargarDatos = async () => {
     try {
       setCargando(true);
-      // Solo carga la data de la vista actual para hacer el frontend ultra rápido
       if (vistaActual === 'ponencias') {
         const res = await axios.get(`${API_URL}/api/admin/ponencias`);
         setPonencias(res.data);
@@ -88,11 +88,14 @@ function AdminPanel() {
   };
 
   const borrarTodos = async (entidad) => {
-    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?`);
+    const confirmacion = window.confirm(`⚠️ ADVERTENCIA CRÍTICA ⚠️\n\n¿Estás absolutamente seguro de que deseas eliminar TODOS los registros de ${entidad.toUpperCase()}?\n\nEsta acción borrará recursos físicos de Cloudinary. NO SE PUEDE DESHACER.`);
     if (!confirmacion) return;
     
     const confirmacion2 = window.prompt(`Para confirmar, escribe exactamente la palabra "ELIMINAR"`);
-    if (confirmacion2 !== "ELIMINAR") return;
+    if (confirmacion2 !== "ELIMINAR") {
+        setMensaje({ tipo: 'error', texto: 'Operación cancelada.' });
+        return;
+    }
 
     setProcesandoAccion(true);
     setMensaje({ tipo: '', texto: `Vaciando registros masivos...` });
@@ -125,7 +128,7 @@ function AdminPanel() {
       await axios.put(`${API_URL}/api/admin/estudiantes/${id}/asistencia`, { asistencia: nuevoEstado });
     } catch (error) {
       setEstudiantes(estudiantes.map(e => e.id === id ? { ...e, asistencia: estadoActual } : e));
-      setMensaje({ tipo: 'error', texto: 'Error al guardar la asistencia.' });
+      setMensaje({ tipo: 'error', texto: 'Error al guardar la asistencia en la base de datos.' });
     }
   };
 
@@ -136,6 +139,7 @@ function AdminPanel() {
   const confirmarEliminacion = async () => {
     const { entidad, id } = modalConfirmacion;
     setModalConfirmacion({ abierto: false, entidad: '', id: null });
+    setMensaje({ tipo: '', texto: '' });
     try {
       await axios.delete(`${API_URL}/api/admin/${entidad}/${id}`);
       setMensaje({ tipo: 'exito', texto: 'Registro eliminado con éxito.' });
@@ -162,11 +166,34 @@ function AdminPanel() {
     setModalEntidad(entidad);
     setIdSeleccionado(item.id);
     if (entidad === 'ponencia') {
-      setFormPonencia({ titulo: item.titulo, estudiante_nombre: item.estudiante_nombre, estudiante_documento: item.estudiante_documento, estudiante_institucion: item.estudiante_institucion, estudiante_correo: item.estudiante_correo, estudiante_ciudad: item.estudiante_ciudad, estudiante_cargo: item.estudiante_cargo });
+      setFormPonencia({
+        titulo: item.titulo,
+        estudiante_nombre: item.estudiante_nombre,
+        estudiante_documento: item.estudiante_documento,
+        estudiante_institucion: item.estudiante_institucion,
+        estudiante_correo: item.estudiante_correo,
+        estudiante_ciudad: item.estudiante_ciudad,
+        estudiante_cargo: item.estudiante_cargo
+      });
     } else if (entidad === 'estudiante') {
-      setFormEstudiante({ nombres_apellidos: item.nombres_apellidos, documento_identidad: item.documento_identidad, institucion: item.institucion, correo: item.correo, ciudad: item.ciudad, cargo: item.cargo, nombre_trabajo: item.nombre_trabajo });
+      setFormEstudiante({
+        nombres_apellidos: item.nombres_apellidos,
+        documento_identidad: item.documento_identidad,
+        institucion: item.institucion,
+        correo: item.correo,
+        ciudad: item.ciudad,
+        cargo: item.cargo,
+        nombre_trabajo: item.nombre_trabajo
+      });
     } else {
-      setFormEvaluador({ nombres_apellidos: item.nombres_apellidos, documento_identidad: item.documento_identidad, institucion: item.institucion, correo: item.correo, cargo: item.cargo, evento_id: String(item.evento_id) });
+      setFormEvaluador({
+        nombres_apellidos: item.nombres_apellidos,
+        documento_identidad: item.documento_identidad,
+        institucion: item.institucion,
+        correo: item.correo,
+        cargo: item.cargo,
+        evento_id: String(item.evento_id)
+      });
     }
     setModalAbierto(true);
   };
@@ -187,7 +214,9 @@ function AdminPanel() {
     try {
       if (modalModo === 'crear') {
         const respuesta = await axios.post(urlBase, payload);
-        const textoExito = respuesta.data.pin ? `${respuesta.data.mensaje} | PIN: ${respuesta.data.pin}` : respuesta.data.mensaje;
+        const textoExito = respuesta.data.pin 
+          ? `${respuesta.data.mensaje} | PIN DE ACCESO: ${respuesta.data.pin}` 
+          : respuesta.data.mensaje || 'Registro creado exitosamente.';
         setMensaje({ tipo: 'exito', texto: textoExito });
       } else {
         await axios.put(`${urlBase}/${idSeleccionado}`, payload);
@@ -196,7 +225,7 @@ function AdminPanel() {
       setModalAbierto(false);
       cargarDatos();
     } catch (error) {
-      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Ocurrió un error.' });
+      setMensaje({ tipo: 'error', texto: error.response?.data?.error || 'Ocurrió un error en la operación.' });
     }
   };
 
@@ -213,7 +242,9 @@ function AdminPanel() {
     setProcesandoAccion(true);
     setMensaje({ tipo: '', texto: 'Procesando archivo masivo... Esto garantizará que se guarden todos los estudiantes sin omitir a ninguno.' });
     try {
-      await axios.post(`${API_URL}/api/admin/cargar_excel`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await axios.post(`${API_URL}/api/admin/cargar_excel`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       setMensaje({ tipo: 'exito', texto: 'Excel cargado y grupos procesados correctamente.' });
       cargarDatos();
     } catch (error) {
@@ -255,12 +286,12 @@ function AdminPanel() {
     }
   };
 
-  // ⚠️ LÓGICA PARA ASIGNAR PONENCIAS
+  // ⚠️ NUEVAS FUNCIONES PARA ASIGNAR PONENCIAS
   const abrirAsignacion = async (evaluador) => {
     setEvaluadorAAsignar(evaluador);
-    setPonenciasSeleccionadas(evaluador.ponencias_asignadas || []); // Las que ya tiene
+    setPonenciasSeleccionadas(evaluador.ponencias_asignadas || []); 
     setModalAsignarAbierto(true);
-    // Necesitamos cargar ponencias si no están cargadas
+    // Cargamos ponencias aprobadas para mostrarlas en el modal
     if (ponencias.length === 0) {
       const res = await axios.get(`${API_URL}/api/admin/ponencias`);
       setPonencias(res.data.filter(p => p.estado === 'aceptada'));
@@ -279,9 +310,9 @@ function AdminPanel() {
       await axios.post(`${API_URL}/api/admin/evaluadores/${evaluadorAAsignar.id}/asignar`, {
         ponencias_codigos: ponenciasSeleccionadas
       });
-      setMensaje({ tipo: 'exito', texto: 'Ponencias asignadas y correo enviado exitosamente.' });
+      setMensaje({ tipo: 'exito', texto: 'Ponencias asignadas y correo enviado exitosamente al evaluador.' });
       setModalAsignarAbierto(false);
-      cargarDatos(); // Recargar para mostrar los cambios
+      cargarDatos(); 
     } catch (error) {
       setMensaje({ tipo: 'error', texto: 'No se pudo asignar las ponencias.' });
     } finally {
@@ -312,11 +343,10 @@ function AdminPanel() {
 
   if (!autorizado) return null;
 
-  // ⚠️ NUEVO REDISEÑO: LAYOUT DE SIDEBAR PROFESIONAL
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden w-full font-sans">
       
-      {/* SIDEBAR LATERAL */}
+      {/* ⚠️ SIDEBAR LATERAL PROFESIONAL */}
       <div className="w-64 bg-blue-950 text-white flex flex-col shadow-2xl z-20 shrink-0">
         <div className="p-6 border-b border-blue-900">
           <h2 className="text-2xl font-bold tracking-wider">ADMIN ACOFI</h2>
@@ -355,7 +385,7 @@ function AdminPanel() {
       {/* ÁREA PRINCIPAL */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         
-        {/* HEADER SUPERIOR */}
+        {/* ⚠️ HEADER SUPERIOR CON MENÚ DESPLEGABLE DE DESCARGAS */}
         <header className="bg-white border-b border-gray-200 px-8 py-5 flex flex-col md:flex-row justify-between items-center z-10 shadow-sm gap-4">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold text-gray-800 capitalize">Gestión de {vistaActual}</h1>
@@ -365,13 +395,13 @@ function AdminPanel() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Botón de Excel Oculto */}
+            {/* Botón de Excel Subir */}
             <label className={`px-4 py-2 text-white text-sm rounded-lg font-bold transition-colors cursor-pointer shadow-md flex items-center gap-2 ${procesandoAccion ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
               📁 Subir Excel DB
               <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={cargarExcel} disabled={procesandoAccion} />
             </label>
 
-            {/* Dropdown Elegante para Descargas */}
+            {/* Menú Desplegable (Dropdown) Elegante */}
             <div className="relative group">
               <button className="px-4 py-2 bg-emerald-600 text-white font-bold text-sm rounded-lg hover:bg-emerald-700 shadow-md flex items-center gap-2">
                 📥 Descargar Reportes <span>▼</span>
@@ -382,6 +412,7 @@ function AdminPanel() {
                   <button onClick={() => descargarExcel('evaluadores')} className="px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium">Reporte Evaluadores</button>
                   <button onClick={() => descargarExcel('ponencias')} className="px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium">Reporte Ponencias</button>
                   <button onClick={() => descargarExcel('evaluaciones')} className="px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium border-t border-gray-100">Resultados Finales</button>
+                  <button onClick={() => descargarExcel('asistencia')} className="px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium border-t border-gray-100">Asistencia Aforo</button>
                 </div>
               </div>
             </div>
@@ -397,7 +428,7 @@ function AdminPanel() {
             </div>
           )}
 
-          {/* BARRA DE HERRAMIENTAS ESPECÍFICA POR VISTA */}
+          {/* BARRA DE HERRAMIENTAS DE BUSCADORES */}
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
             {vistaActual === 'ponencias' && (
               <>
@@ -427,7 +458,7 @@ function AdminPanel() {
           ) : (
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
               
-              {/* TABLAS */}
+              {/* ⚠️ VISTA PONENCIAS: ENUMERADA */}
               {vistaActual === 'ponencias' && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-800px">
@@ -461,6 +492,7 @@ function AdminPanel() {
                 </div>
               )}
 
+              {/* ⚠️ VISTA ESTUDIANTES: ENUMERADA */}
               {vistaActual === 'estudiantes' && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-800px">
@@ -493,6 +525,7 @@ function AdminPanel() {
                 </div>
               )}
 
+              {/* ⚠️ VISTA ASISTENCIA: ENUMERADA */}
               {vistaActual === 'asistencia' && (
                 <div>
                   <div className="bg-gray-50 px-6 py-5 border-b border-gray-200 flex flex-wrap gap-8 justify-center md:justify-start">
@@ -532,7 +565,7 @@ function AdminPanel() {
                 </div>
               )}
 
-              {/* ⚠️ VISTA EVALUADORES: CON BOTÓN DE ASIGNACIÓN */}
+              {/* ⚠️ VISTA EVALUADORES: CON BOTÓN DE ASIGNAR */}
               {vistaActual === 'evaluadores' && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-800px">
@@ -541,7 +574,7 @@ function AdminPanel() {
                       <th className="p-4 font-bold border-b border-gray-200">Evaluador Registrado</th>
                       <th className="p-4 font-bold border-b border-gray-200">Credenciales</th>
                       <th className="p-4 font-bold border-b border-gray-200">Institución / Sede</th>
-                      <th className="p-4 font-bold border-b border-gray-200 text-center">Asignaciones</th>
+                      <th className="p-4 font-bold text-center border-b border-gray-200">Asignaciones</th>
                       <th className="p-4 font-bold text-center border-b border-gray-200">Gestión</th>
                     </tr>
                   </thead>
@@ -553,11 +586,10 @@ function AdminPanel() {
                         <td className="p-4"><p className="text-gray-800 font-bold">{e.institucion}</p><p className="text-xs text-gray-500 mt-0.5">{e.cargo} • <span className="text-blue-700">{e.evento.split(',')[0]}</span></p></td>
                         <td className="p-4 text-center">
                             <span className="text-xl font-black text-indigo-600 bg-indigo-50 w-10 h-10 inline-flex items-center justify-center rounded-xl border border-indigo-100">
-                                {e.ponencias_asignadas?.length || 0}
+                                {e.ponencias_asignadas ? e.ponencias_asignadas.length : 0}
                             </span>
                         </td>
                         <td className="p-4 text-center space-y-1.5">
-                          {/* BOTÓN ASIGNAR */}
                           <button onClick={() => abrirAsignacion(e)} className="block w-full px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors">🎯 Asignar Ponencias</button>
                           <button onClick={() => abrirEditarModal('evaluador', e)} className="block w-full px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-bold transition-colors">Editar</button>
                           <button onClick={() => solicitarEliminacion('evaluadores', e.id)} className="block w-full px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold transition-colors">Eliminar</button>
@@ -569,7 +601,7 @@ function AdminPanel() {
                 </div>
               )}
 
-              {/* ⚠️ RANKING CON NOMBRES DE EVALUADORES */}
+              {/* ⚠️ RANKING CON VISIBILIDAD DE EVALUADORES */}
               {vistaActual === 'ranking' && (
                 <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-800px">
@@ -577,8 +609,8 @@ function AdminPanel() {
                     <tr className="bg-gray-100 text-gray-700 text-xs uppercase tracking-wider">
                       <th className="p-4 font-bold text-center border-b border-gray-200 w-24">Puesto</th>
                       <th className="p-4 font-bold border-b border-gray-200">Proyecto Evaluado</th>
-                      <th className="p-4 font-bold border-b border-gray-200">Evaluado por</th>
-                      <th className="p-4 font-bold text-center border-b border-gray-200">Promedio</th>
+                      <th className="p-4 font-bold border-b border-gray-200 text-center">Evaluado Por</th>
+                      <th className="p-4 font-bold text-center border-b border-gray-200">Promedio General</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -590,12 +622,12 @@ function AdminPanel() {
                           </span>
                         </td>
                         <td className="p-4"><p className="font-bold text-gray-800 line-clamp-2">{item.titulo}</p><p className="text-xs text-gray-500 mt-1">Autor: {item.estudiante_nombre} • Código: <span className="font-mono bg-gray-200 px-1 rounded text-gray-700 font-bold">{item.codigo}</span></p></td>
-                        <td className="p-4">
-                          {item.evaluadores_nombres?.length > 0 ? (
-                            <ul className="list-disc pl-4 text-xs text-gray-600 font-medium space-y-0.5">
-                              {item.evaluadores_nombres.map((nom, i) => <li key={i}>{nom}</li>)}
-                            </ul>
-                          ) : <span className="text-xs italic text-gray-400">Sin evaluar</span>}
+                        <td className="p-4 text-center">
+                          {item.evaluadores_nombres && item.evaluadores_nombres.length > 0 ? (
+                            <div className="flex flex-col gap-1 items-center">
+                              {item.evaluadores_nombres.map((ev, i) => <span key={i} className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded text-xs font-semibold border border-blue-100">{ev}</span>)}
+                            </div>
+                          ) : <span className="text-xs italic text-gray-400 font-medium">Sin evaluar</span>}
                         </td>
                         <td className="p-4 text-center"><span className="bg-blue-950 text-white px-4 py-2 rounded-xl font-black text-base shadow-md inline-block">{item.promedio}</span></td>
                       </tr>
@@ -620,7 +652,7 @@ function AdminPanel() {
         </main>
       </div>
 
-      {/* ⚠️ MODAL DE ASIGNACIÓN DE PONENCIAS */}
+      {/* ⚠️ NUEVO: MODAL DE ASIGNACIÓN DE PONENCIAS */}
       {modalAsignarAbierto && evaluadorAAsignar && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl p-6 md:p-8 flex flex-col max-h-[90vh]">
@@ -637,7 +669,7 @@ function AdminPanel() {
                   </div>
                 </label>
               ))}
-              {ponencias.length === 0 && <p className="text-center text-gray-400 py-10 text-sm">No hay ponencias aprobadas en el sistema.</p>}
+              {ponencias.length === 0 && <p className="text-center text-gray-400 py-10 text-sm font-medium">No hay ponencias aprobadas en el sistema.</p>}
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t">
@@ -666,7 +698,7 @@ function AdminPanel() {
       )}
 
       {modalAbierto && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-sm">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 md:p-8 flex flex-col max-h-[90vh]">
             <h3 className="text-xl md:text-2xl font-bold text-blue-950 mb-6 capitalize pb-4 border-b">{modalModo} {modalEntidad}</h3>
             <div className="overflow-y-auto pr-2">
